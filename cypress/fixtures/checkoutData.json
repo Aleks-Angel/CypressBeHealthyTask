@@ -1,0 +1,46 @@
+{
+  "validUser": {
+    "email": "tester@example.com",
+    "firstName": "Aleks",
+    "lastName": "Testović",
+    "phone": "0912345678",
+    "address1": "Ulica 1",
+    "address2": "12",
+    "city": "zagreb",
+    "postalCode": "1000"
+  },
+
+  "invalidUser": {
+    "email": "wrong-email-format",
+    "firstName": "",
+    "lastName": "Doe"
+  },
+
+  "searchTerms": {
+    "primary": "Vitamin C",
+    "secondary": "Magnezij"
+  },
+
+  "validationMessages": {
+    "emptyFields": [
+      "Unesite ime",
+      "Unesite prezime",
+      "Greška: E-mail adresa nije ispravna.",
+      "Upišite ispravnu adresu.",
+      "Mjesto mora sadržavati između 2 i 128 znakova!",
+      "Upišite ispravan poštanski broj (npr. 10000)",
+      "Potrebno je prihvatiti opće uvjete poslovanja!"
+    ]
+  },
+
+  "loginData": {
+    "validEmailUser": {
+      "email": "angelkoski@gmail.com",
+      "password": "Acko_2024!"
+    },
+    "invalidEmailUser": {
+      "email": "wrong@email.com",
+      "password": "WrongPassword123"
+    }
+  }
+}

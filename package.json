@@ -1,0 +1,21 @@
+{
+  "name": "futunatura-cypress-automation",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "cypress:open": "cypress open",
+    "cypress:run": "cypress run --browser chrome",
+    "report:generate": "npx mochawesome-merge cypress/results/*.json > cypress/results/report.json && npx marg cypress/results/report.json --reportDir cypress/reports",
+    "test:ci": "npm run cypress:run && npm run report:generate"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "Cypress E2E automation for Futunatura.hr",
+  "dependencies": {
+    "cypress": "^15.9.0",
+    "mochawesome": "^7.1.4",
+    "mochawesome-merge": "^4.3.0",
+    "mochawesome-report-generator": "^6.2.0"
+  }
+}

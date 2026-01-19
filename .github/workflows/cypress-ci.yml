@@ -1,0 +1,29 @@
+name: Futunatura E2E Tests
+on: [push]
+
+jobs:
+  cypress-run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Cypress run
+        # This action handles caching node_modules and running the tests
+        uses: cypress-io/github-action@v6
+        with:
+          # This starts the run in headless mode by default
+          browser: chrome
+        env:
+          # If you use secrets for any credentials
+          CYPRESS_RECORD_KEY: ${{ secrets.CYPRESS_RECORD_KEY }}
+
+      - name: Upload Test Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cypress-results
+          path: |
+            cypress/screenshots
+            cypress/videos
+            cypress/results

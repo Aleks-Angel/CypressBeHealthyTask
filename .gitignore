@@ -1,0 +1,14 @@
+# Dependencies
+node_modules/
+
+# Cypress Assets
+cypress/screenshots/
+cypress/videos/
+
+# Cypress Results & Reports
+cypress/results/
+mochawesome-report/
+
+# Environment and Logs
+*.log
+.env
