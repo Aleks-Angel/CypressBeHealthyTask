@@ -13,9 +13,11 @@
   "license": "ISC",
   "description": "Cypress E2E automation for Futunatura.hr",
   "dependencies": {
-    "cypress": "^15.9.0",
     "mochawesome": "^7.1.4",
     "mochawesome-merge": "^4.3.0",
     "mochawesome-report-generator": "^6.2.0"
+  },
+  "devDependencies": {
+    "cypress": "^15.10.0"
   }
 }
