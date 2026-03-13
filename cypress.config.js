@@ -23,6 +23,9 @@ module.exports = defineConfig({
   video: false, 
   screenshotOnRunFailure: true,
 
+  // Disable insecure Cypress.env() access
+  allowCypressEnv: false,
+
   e2e: {
     viewportWidth: 1280,
     viewportHeight: 720,
