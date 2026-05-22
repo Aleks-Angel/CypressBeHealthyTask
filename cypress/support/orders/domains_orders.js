@@ -1,11 +1,10 @@
 import { productPage } from '../page_objects/ProductPage';
 import { checkoutPage } from '../page_objects/CheckoutPage';
 import { SUCCESS_TEXT_PATTERN } from '../utils/success-patterns';
+import { ORDER_NUMBER_SELECTOR } from '../utils/order-selectors';
 
 const SUCCESS_URL_PATTERN = /\/(success|thank-you|zakljucek|hvala|completed|finished|order[-_]received)/i;
 const CHECKOUT_URL_PATTERNS = ['/blagajna', '/checkout', '/kasse', '/platba', '/fizetés', '/paiement', '/pagamento', '/pago', '/ολοκλήρωση'];
-
-const SUCCESS_ORDER_NO_SELECTOR = '.thank-you-orderno, .order-id, .order-number, [class*="order-no"], [class*="orderno"]';
 
 /**
  * Detect whether we're on the order-success page using URL + DOM signals.
@@ -21,7 +20,7 @@ function hasSuccessMarkers($body, url) {
   // each brand worded its success-page heading. The text fallback handles
   // edge cases where SUCCESS_URL_PATTERN doesn't catch a TLD's success URL.
   if (url && SUCCESS_URL_PATTERN.test(url)) return true;
-  const hasOrderNo = $body.find(SUCCESS_ORDER_NO_SELECTOR).length > 0;
+  const hasOrderNo = $body.find(ORDER_NUMBER_SELECTOR).length > 0;
   const hasThankYou = SUCCESS_TEXT_PATTERN.test($body.text());
   return hasOrderNo || hasThankYou;
 }

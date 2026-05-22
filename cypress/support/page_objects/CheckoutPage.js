@@ -1,14 +1,7 @@
 import { normalizeLanguageCode, resolveLangCode, pickLocalized, getSiteLanguage } from '../utils/lang';
 import { SUCCESS_TEXT_PATTERN } from '../utils/success-patterns';
-
-// Localized "order cancelled / successfully cancelled" phrases.
-const CANCEL_SUCCESS_PATTERN = /uspešno preklican|successfully cancel|storniert|annullat|anulată|úspěšně zrušena|zrušená|pomyślnie anulowane|annulée|отменена|cancelado|παραγγελίας|cancelada|poništena/i;
-
-// Localized "cancelled" status tokens — matched against status text on the order page.
-const CANCEL_STATUS_PATTERN = /preklican|cancelled|canceled|storniert/i;
-
-// Localized "Status" heading on the order-status page.
-const STATUS_HEADING_PATTERN = /Status|Статус|Starea|Stav|állapota|commande|Estado|παραγγελίας|ordine/i;
+import { CANCEL_SUCCESS_PATTERN, CANCEL_STATUS_PATTERN, STATUS_HEADING_PATTERN } from '../utils/cancel-patterns';
+import { ORDER_NUMBER_SELECTOR } from '../utils/order-selectors';
 
 // Languages whose checkout uses an additional region/county vue-select dropdown.
 const COUNTY_DROPDOWN_LANGS = ['ro', 'bg', 'sk', 'it'];
@@ -180,59 +173,6 @@ class CheckoutPage {
   }
 
   /**
- * Helper 1: For standard text inputs.
- * Re-types if the site wipes the field mid-operation.
- */
-safeType(getElement, value, attempt = 1) {
-  const maxAttempts = 3;
-  const element = typeof getElement === 'function' ? getElement() : getElement;
-
-  return element
-    .should('exist')
-    .should('be.visible')
-    .clear({ force: true })
-    .type(value, { force: true, delay: 50, timeout: 5000 })
-    .then(($el) => {
-      if (!$el || !$el.length) {
-        cy.log(`⚠️ safeType target missing after type (attempt ${attempt}/${maxAttempts}).`);
-        if (attempt < maxAttempts) {
-          return cy.wait(200).then(() => this.safeType(getElement, value, attempt + 1));
-        }
-        throw new Error('safeType target missing after type');
-      }
-
-      const normalizeValue = (input) => typeof input === 'string' ? input.trim().toLowerCase() : input;
-      const typedValue = $el.val();
-      const expectedNormalized = normalizeValue(value);
-      const actualNormalized = normalizeValue(typedValue);
-
-      if (actualNormalized !== expectedNormalized) {
-        cy.log(`⚠️ safeType attempt ${attempt}/${maxAttempts}: expected='${value}' actual='${typedValue}'`);
-        if (attempt < maxAttempts) {
-          return cy.wait(200).then(() => this.safeType(getElement, value, attempt + 1));
-        }
-
-        cy.log('⚠️ safeType final fallback writing value directly.');
-        return cy.wrap($el).then(($input) => {
-          $input.val(value);
-          return cy.wrap($input)
-            .trigger('input')
-            .trigger('change')
-            .should(($finalInput) => {
-              const finalValue = normalizeValue($finalInput.val());
-              expect(finalValue).to.equal(expectedNormalized);
-            });
-        });
-      }
-
-      return cy.wrap($el).blur().should(($input) => {
-        const finalValue = normalizeValue($input.val());
-        expect(finalValue).to.equal(expectedNormalized);
-      });
-    });
-}
-
-  /**
    * Fills address fields based on language. Dispatches to a country-specific filler
    * for layouts that need extra dropdowns (SK/IT/RO/BG), otherwise just sets the city.
    * @param {Object} user - User data object
@@ -264,7 +204,7 @@ safeType(getElement, value, attempt = 1) {
         cy.log(`ℹ️ City already populated: ${existingValue}`);
         return null;
       }
-      return this.safeType(() => this.cityInput, city);
+      return cy.safeType(() => this.cityInput, city);
     });
   }
 
@@ -281,7 +221,7 @@ safeType(getElement, value, attempt = 1) {
   fillItalianAddress(county, city) {
     this.countyAddressField1.clear({ force: true }).type(county, { force: true });
     this.countyDropdownList.should('be.visible').find('li').first().click({ force: true });
-    return this.safeType(() => this.cityInput, city);
+    return cy.safeType(() => this.cityInput, city);
   }
 
   /**
@@ -297,7 +237,7 @@ safeType(getElement, value, attempt = 1) {
     return this.countyAddressField1.clear({ force: true }).type(county, { force: true }).then(() => {
       this.countyDropdownList.find('li').contains(county).click({ force: true });
       cy.wait(600); // let Vue settle after county selection before typing city
-      return this.safeType(() => this.cityInput, city);
+      return cy.safeType(() => this.cityInput, city);
     });
   }
 
@@ -529,7 +469,7 @@ safeType(getElement, value, attempt = 1) {
               return null;
             }
             cy.log(`⚠️ City field changed after accept: expected='${expectedCity}' actual='${currentValue || '<empty>'}'`);
-            return this.safeType(() => cy.get(CheckoutPage.SELECTORS.CITY_INPUT), expectedCity).then(() => {
+            return cy.safeType(() => cy.get(CheckoutPage.SELECTORS.CITY_INPUT), expectedCity).then(() => {
               cy.log(`✅ Re-typed city field to '${expectedCity}'`);
             });
           });
@@ -838,16 +778,16 @@ safeType(getElement, value, attempt = 1) {
    *
    * The 30s timeout matches upstream cy.url/orderConfirmationMsg timeouts —
    * slow success pages like Sweet Nutri ES took >10s to render the number.
-   * The selector union mirrors SUCCESS_ORDER_NO_SELECTOR in domains_orders.js.
+   * The selector union is the shared ORDER_NUMBER_SELECTOR from utils — same
+   * source of truth as the success-detection in domains_orders.js.
    *
    * @returns {Cypress.Chainable}
    */
   captureOrderIdAndVerifyStatus() {
-    const ORDER_NO_SELECTOR = '.thank-you-orderno, .success-section__order-number, .order-id, .order-number, [class*="order-no"], [class*="orderno"]';
     const ORDER_NO_RE = /\d{3,}/;
 
-    return cy.get(ORDER_NO_SELECTOR, { timeout: 30000 })
-      .then(($el) => this._extractOrderNoWithFallbacks($el, ORDER_NO_SELECTOR, ORDER_NO_RE))
+    return cy.get(ORDER_NUMBER_SELECTOR, { timeout: 30000 })
+      .then(($el) => this._extractOrderNoWithFallbacks($el, ORDER_NUMBER_SELECTOR, ORDER_NO_RE))
       .then((orderNo) => {
         cy.log(`📦 Captured Order ID: ${orderNo}`);
         return cy.task('sha1', { value: orderNo });
