@@ -8,21 +8,19 @@ on:
     # protection, since the random brand×locale pick can flake for reasons
     # unrelated to the PR's changes.
     branches: [main]
-  schedule:
-    # Hourly smoke against a random brand × language
-    - cron: '0 * * * *'
+  # Hourly smoke against a random brand × language — paused for now.
+  # Uncomment the schedule block below to re-enable.
+  # schedule:
+  #   - cron: '0 * * * *'
   workflow_dispatch:
-
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   domain-visit-random:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: '22'
           cache: 'npm'
@@ -34,7 +32,7 @@ jobs:
 
       - name: Upload Cypress results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: cypress-results
           path: |
