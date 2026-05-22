@@ -4,11 +4,23 @@ End-to-end Cypress test suite covering 7 BeHealthy storefronts (Futunatura, Heal
 
 ---
 
+## ✨ What's notable
+
+- **Brand × locale matrix** — one parametric spec (`domain_visit.cy.js`) runs against any of 7 brands × 16 locales = 112 combinations. URL composition lives in `cypress/support/domains.js` (one map for per-brand TLD overrides).
+- **Vue race resilience** — checkouts use vue-select dropdowns and Bootstrap modals that race during AJAX-driven re-renders. The suite has explicit, per-site-tuned recovery for the BG/RO city/county dropdowns, payment-method radios, and stuck modals. See [ARCHITECTURE.md](ARCHITECTURE.md#load-bearing-code--do-not-casually-refactor) for which code is load-bearing.
+- **Mochawesome flaky-attempt augmentation** — Cypress retries (`runMode: 1`) collapse a failed-then-passed test into a single pass entry in the report. A Node-side `after:spec` augmenter in `cypress.config.js` reads Cypress's per-attempt error info and injects "Flaky test", "Attempt N error", and "Failure screenshot (attempt 1)" into the visible test entry — so flaky tests in CI artifacts still show what failed and what they looked like at the failure moment.
+- **Single-source-of-truth utilities** — localized regexes (success / cancel / status), the order-number selector union, and language-code resolution all live in `cypress/support/utils/*` so adding a new locale's wording or selector is a one-file edit. No copy-paste-drift bugs.
+- **Self-contained HTML report** — screenshots are embedded as base64 data URIs into `final-report.html`, so emailing or archiving the single file preserves everything.
+
+See [ARCHITECTURE.md](ARCHITECTURE.md) for the full breakdown of how the code is organized and which pieces are load-bearing. See [PORTING-TO-APP-REPO.md](PORTING-TO-APP-REPO.md) for the plan to merge this suite into the BeHealthy app repo once it's on GitHub.
+
+---
+
 ## 🧪 Test Suites
 
 | # | Spec | Coverage |
 |---|---|---|
-| 1 | `checkout_flow.cy.js` | Multi-product search → add to cart → checkout summary on Futunatura SI. Hamburger-menu navigation + side-cart deletion. |
+| 1 | `checkout_flow.cy.js` | Multi-product search → add to cart → checkout summary on Futunatura HR. Hamburger-menu navigation + side-cart deletion. |
 | 2 | `checkout_validation.cy.js` | Mandatory-field error rendering + email-format rejection on Futunatura HR. |
 | 3 | `login_scenarios.cy.js` | Login with valid credentials + logout; error paths for wrong credentials and empty fields. |
 | 4 | `responsiveness.cy.js` | Multi-viewport check (iPhone XR, iPad 2, Desktop). Hamburger replaces desktop nav on small screens. |
@@ -20,7 +32,7 @@ End-to-end Cypress test suite covering 7 BeHealthy storefronts (Futunatura, Heal
 
 ### Prerequisites
 
-- Node.js 18+
+- Node.js 22+ (CI runs on Node 22; lower versions may work but aren't validated)
 - npm
 
 ### Installation
@@ -121,13 +133,17 @@ npm run test:ci
 
 ---
 
-## 🤖 GitHub Actions — `domain_visit.cy.js` on push + hourly
+## 🤖 GitHub Actions — `domain_visit.cy.js`
 
-The workflow picks a **random brand + random language** for every run, both on every push and on an hourly schedule, so the matrix gets continuous coverage without pinning specific combinations.
+The workflow picks a **random brand + random language** per run via `run-random.js` (which reads `webApps` + `languages` from `cypress/support/domains.js`, so the workflow stays in sync with the code without duplicating the lists in YAML). Lives at `.github/workflows/cypress-ci.yml`.
 
-Randomization is handled by `run-random.js` (which reads `webApps` + `languages` from `cypress/support/domains.js`, so the workflow stays in sync with the code without duplicating the lists in YAML).
+**Active triggers:**
+- `push` to `main` — validates the test suite itself after a merge
+- `pull_request` to `main` — informational status check on PRs (non-blocking by default — random pick can flake for reasons unrelated to the PR)
+- `workflow_dispatch` — manual run from the Actions tab
 
-Drop this in `.github/workflows/domain-visit.yml`:
+**Paused trigger:**
+- `schedule` (hourly cron `0 * * * *`) — commented out for now to reduce noise; uncomment the `schedule:` block to re-enable continuous matrix coverage.
 
 ```yaml
 name: Domain Visit (Random)
@@ -135,20 +151,21 @@ name: Domain Visit (Random)
 on:
   push:
     branches: [main]
-  schedule:
-    # Hourly smoke against a random brand × language
-    - cron: '0 * * * *'
+  pull_request:
+    branches: [main]
+  # schedule:
+  #   - cron: '0 * * * *'   # hourly — paused; uncomment to re-enable
   workflow_dispatch:
 
 jobs:
   domain-visit-random:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
 
       - run: npm ci
@@ -158,7 +175,7 @@ jobs:
 
       - name: Upload Cypress results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: cypress-results
           path: |
@@ -168,9 +185,10 @@ jobs:
 ```
 
 Notes:
+- Action majors (`@v6`, `@v6`, `@v7`) are the Node-24-native releases — they silence the Node 20 deprecation warning that GitHub started emitting after Sep 2025. No `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24` workaround needed.
 - `npm run cypress:run:random` runs `node run-random.js`, which picks one brand from `webApps` and one language from `languages` (single source of truth — `cypress/support/domains.js`). The pick is logged to stdout so the CI log shows what was tested.
-- The cron uses GitHub's UTC time. Hourly = `0 * * * *`. Adjust if you want a quieter cadence (e.g. `0 */3 * * *` for every 3 hours).
 - `if: always()` on the artifact upload preserves screenshots + video + the mochawesome HTML even on failure — critical for the embedded-screenshot report to land in CI artifacts.
+- To make PR checks blocking: repo Settings → Branches → main → "Require status checks to pass" → tick `Domain Visit (Random)`. Off by default because random-pick flakes are noisy in PR review.
 
 ### Local randomized runs
 
@@ -199,7 +217,14 @@ cypress/results/
 └── final-report.html        # Self-contained HTML — open this
 ```
 
-**Embedded screenshots:** when a test fails, `cypress/support/e2e.js` captures the screenshot and attaches it inline (as a base64 data URI) to the mochawesome report via `mochawesome/addContext`. The HTML report is fully self-contained — no `file://` security blocks when opened from disk, and emailing the single HTML file preserves the images.
+**Embedded screenshots:** when a test fails, Cypress (`screenshotOnRunFailure: true`) auto-captures the screenshot at the failure moment — before the page is cleared, so the PNG actually shows the page state the assertion saw. The `after:screenshot` hook in `cypress.config.js` renames the file to `{lang}_{brand}_order.png`. The `after:spec` augmenter then reads the per-attempt error info Cypress provides, embeds the screenshot as a base64 data URI, and injects it into the mochawesome JSON as test context — so the final HTML report is fully self-contained (no `file://` security blocks when opened from disk, and emailing the single HTML preserves the images).
+
+**Flaky-test attempts:** when a test fails on attempt 1 and passes on retry, the augmenter injects three additional context sections into the (visible) passing entry:
+- `Flaky test` — summary line ("Failed on attempt(s) 1..1, passed on attempt 2.")
+- `Attempt N error` — the full assertion error + stack trace from each failed attempt
+- `Failure screenshot (attempt 1)` — embedded PNG of what attempt 1's failure looked like
+
+This works because the augmenter runs in Node, after mocha has finalized the test entry — `addContext` from inside afterEach is too late in Cypress's lifecycle (see [ARCHITECTURE.md](ARCHITECTURE.md#mochawesome-report-augmentation) for the why).
 
 The renaming/move logic for screenshots and videos lives in `cypress.config.js` (`after:screenshot` and `after:spec` hooks). The lang-specific temp folders are deleted after each spec; only the final renamed files survive.
 
@@ -209,22 +234,29 @@ The renaming/move logic for screenshots and videos lives in `cypress.config.js` 
 
 ```
 cypress/
-├── e2e/                            # Specs (5 above + cypress/e2e/ph/ for WIP)
+├── e2e/                            # 5 specs
 ├── support/
 │   ├── commands.js                 # Custom cy.* commands (see below)
-│   ├── e2e.js                      # Global hooks: failure screenshot + mochawesome addContext
+│   ├── e2e.js                      # Global hooks: failure-error bridge to Node + modal cleanup
 │   ├── domains.js                  # webApps, languages, KNOWN_BRANDS, getTargetUrl()
 │   ├── orders/
 │   │   └── domains_orders.js       # Shared order flow used by domain_visit.cy.js across brands
-│   └── page_objects/
-│       ├── HomePage.js             # Search, burger menu, cart drawer
-│       ├── LoginPage.js            # Login form selectors
-│       ├── ProductPage.js          # Add-to-cart button, modal handling, checkout link
-│       └── CheckoutPage.js         # Customer info, payment method, address dropdowns, order cancellation
+│   ├── page_objects/
+│   │   ├── HomePage.js             # Search, burger menu, cart drawer
+│   │   ├── LoginPage.js            # Login form selectors
+│   │   ├── ProductPage.js          # Add-to-cart button, modal handling, checkout link
+│   │   └── CheckoutPage.js         # Customer info, payment method, address dropdowns, order cancellation
+│   └── utils/                      # Pure functions / regex / selector unions
+│       ├── lang.js                 # normalizeLanguageCode, resolveLangCode, pickLocalized, getSiteLanguage
+│       ├── success-patterns.js     # SUCCESS_TEXT_PATTERN — "thank you for your order" across locales
+│       ├── cancel-patterns.js      # CANCEL_SUCCESS_PATTERN, CANCEL_STATUS_PATTERN, STATUS_HEADING_PATTERN
+│       └── order-selectors.js      # ORDER_NUMBER_SELECTOR — union across storefront themes
 ├── fixtures/
 │   └── checkoutData.json           # validUser, invalidUser, search terms, payment config, validation messages
-└── results/                        # See "Reports & Artifacts" above
+└── results/                        # See "Reports & Artifacts" above (gitignored)
 ```
+
+See [ARCHITECTURE.md](ARCHITECTURE.md) for the "where does new code go?" decision table and the load-bearing-code section.
 
 ### Custom commands (`cypress/support/commands.js`)
 
@@ -232,34 +264,46 @@ cypress/
 |---|---|
 | `cy.safeVisit(url, opts)` | `cy.visit` with a 30 s timeout, `failOnStatusCode: false`, and a `@siteReachable` alias for downstream branching. Doesn't go through `cy.request` (Node-side) because WAF/Cloudflare blocks that. |
 | `cy.bypassCookieBanner()` | Dismisses the `#cookieBannerAllowAll` banner if present; safe no-op otherwise. |
+| `cy.visitStorefront(url, opts)` | One-liner wrapper for `safeVisit` + `bypassCookieBanner` — the standard "open a storefront" entrypoint used by every spec's beforeEach. |
 | `cy.searchProduct(query)` | Types into the search input + asserts at least one result tile rendered. Re-dismisses the cookie banner if it re-rendered. |
 | `cy.selectFirstProduct()` | Clicks the first visible product tile (covers Futunatura/Healthy/Purely/OpenCart card layouts). |
 | `cy.selectProductByIndex(idx)` | Selects by 0-based index or `'random'`. Same multi-theme selector coverage. |
+| `cy.safeType(getElement, value)` | Type into an input with 3× retry + value verification; final fallback writes via `.val()` + `trigger('input','change')`. Protects against sites that wipe a field mid-operation (Vue re-renders, AJAX callbacks). `getElement` is a function returning a chainable, so retry can re-query a detached element. |
 
 ### Page object conventions
 
 - `static SELECTORS = { ... }` at the top of each class — never hardcode raw selectors in methods.
 - Getters return `cy.get(...)` chains (re-queryable, no stale handles).
 - Cross-locale field switching (e.g. BG vs default address indices) handled via small helpers like `_byBgOrDefault`.
-- Language normalization (`sl → si`, `cs → cz`, `el → gr`) lives in `CheckoutPage.normalizeLanguageCode`.
+- Language normalization (`sl → si`, `cs → cz`, `el → gr`) lives in `utils/lang.js` (`normalizeLanguageCode`) — shared across page objects, not duplicated.
+- Shared regex / selector unions live in `utils/` (success/cancel patterns, order-number selector). Page objects import them — adding a new locale's wording is a one-file edit.
 
 ### Vue race-condition handling
 
-Storefronts that use Vue (especially Purely / Sweetbites checkouts) have race conditions where:
-- Payment method radios show "checked" in the DOM but Vue's reactive store still has the default,
-- Vue-select dropdowns hide their internal `input.vs__search` after selection,
+Storefronts that use Vue (especially Purely / Sweetbites / Mycoway checkouts) have race conditions where:
+- Payment method radios show "checked" in the DOM but Vue's reactive store still has the default (so submit posts to the wrong gateway),
+- Vue-select dropdowns hide their internal `input.vs__search` after selection (so post-render queries miss the input),
+- Vue may unmount/re-key the combobox between operations on slower brands (BG mycoway, RO futunatura),
 - City/county fields get cleared by Vue after the agreement checkbox is ticked.
 
-`CheckoutPage.js` handles these explicitly in `selectPaymentMethodByLanguage`, `verifyPaymentMethodStable`, the Vue-select helper in `fillRomanianBulgarianAddress`, and the post-accept `verifyCityAfterAccept`. **Do not refactor these without a full domain × language test pass** — the timings are tuned per site.
+`CheckoutPage.js` handles these explicitly via `_selectFromVueSelect` (3× retry with chip-commit polling), `selectPaymentMethodByLanguage` / `verifyPaymentMethodStable` (wrapper-click + native `.check()` to fire the change event), and the post-accept `verifyCityAfterAccept` (reuses `_selectFromVueSelect` for recovery). **Do not refactor these without a full domain × language test pass** — the `cy.wait(<literal>)` durations and retry counts are tuned per site. See [ARCHITECTURE.md](ARCHITECTURE.md#load-bearing-code--do-not-casually-refactor) for the full list of load-bearing pieces.
 
 ---
 
 ## 📝 Notes & gotchas
 
-- **No automatic randomization in the config.** `cypress.config.js` defaults to `language=sl` + `webApps[0]`. The "random pick" lives in the GitHub Actions workflow's shell step (or `--env` from your CI matrix).
+- **No automatic randomization in the config.** `cypress.config.js` defaults to `language=sl` + `webApps[0]`. The "random pick" lives in `run-random.js` (used by `npm run cypress:run:random` locally and by the GitHub Actions workflow).
 - **`selectedApp` vs `selectedBaseUrl`:**
   - Pass `selectedApp=https://www.futunatura.` (base pattern, trailing dot) plus `language=ro` and `getTargetUrl()` composes the right URL (handling per-locale TLD overrides).
   - Pass `selectedBaseUrl=https://www.purely-nutrition.de` if you have the exact URL and want to skip the resolver.
 - **Supported brand identifiers** (for `open-cypress.js` first arg): `futunatura`, `healthyworld`, `onenergy`, `erefit`, `mycoway`, `purelynutrition`, `sweetbites`.
 - **Supported language codes** (all 16): `si hr it hu de at ro cz sk pl fr bg es gr pt uk`.
-- The `cypress/e2e/ph/` folder contains work-in-progress specs (e.g. `purely_order.js`) that are not yet wired into the suite. Treat as experimental.
+- **`pageLoadTimeout: 120000`** is set in `cypress.config.js` — storefront success pages trail slow third-party trackers (Meta pixel, Google Tag) that keep `window.load` pending past the default 60 s. `domains_orders.js` calls `cy.window().then(win => win.stop())` once success is confirmed so the order-ID capture and cancellation steps don't sit blocked.
+- **`Cypress.expose()`** is used (not the deprecated `Cypress.env()`) — see `cypress.config.js` where `language`, `selectedApp`, and `selectedBaseUrl` are mirrored into `config.expose`. Browser code reads them with `Cypress.expose('language')`.
+
+---
+
+## 📚 See also
+
+- [ARCHITECTURE.md](ARCHITECTURE.md) — how the code is organized, the "where does new code go?" decision table, and the load-bearing-code list (timeouts/retries/`force:true` you should NOT casually refactor)
+- [PORTING-TO-APP-REPO.md](PORTING-TO-APP-REPO.md) — sandboxed-merge plan for when this suite gets moved into the BeHealthy app repo

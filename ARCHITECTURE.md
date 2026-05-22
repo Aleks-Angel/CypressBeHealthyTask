@@ -27,20 +27,26 @@ cypress/
     │                                 mochawesome augmenter), beforeEach modal
     │                                 cleanup, uncaught:exception swallow.
     ├── commands.js                 Cypress.Commands.add registrations.
-    │                                Site-navigation/product commands only.
+    │                                Site-navigation + product + form-typing
+    │                                utilities (safeVisit, visitStorefront,
+    │                                bypassCookieBanner, searchProduct,
+    │                                selectFirstProduct, selectProductByIndex,
+    │                                safeType).
     ├── domains.js                  Brand URLs, locale list, KNOWN_BRANDS,
     │                                getTargetUrl(). Pure data + one helper.
     ├── orders/
     │   └── domains_orders.js       runDomainsOrders() — full checkout
     │                                orchestration used by domain_visit spec.
     ├── page_objects/               Page Object Model classes. Singletons
-    │   ├── CheckoutPage.js  (746)  exported (e.g. `export const checkoutPage`).
+    │   ├── CheckoutPage.js         exported (e.g. `export const checkoutPage`).
     │   ├── ProductPage.js
     │   ├── HomePage.js
     │   └── LoginPage.js
-    └── utils/                      Pure functions. No Cypress dependency
-        ├── lang.js                 unless explicitly noted. Importable from
-        └── success-patterns.js     any page object or command.
+    └── utils/                      Pure functions / shared regexes / selector
+        ├── lang.js                 unions. No Cypress dependency unless
+        ├── success-patterns.js     explicitly noted. Importable from any page
+        ├── cancel-patterns.js      object, command, or orchestrator. Single
+        └── order-selectors.js      source of truth for each concern.
 ```
 
 Top-level files:

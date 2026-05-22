@@ -130,3 +130,67 @@ Cypress.Commands.add('selectProductByIndex', (index = 0) => {
       cy.wrap($els[targetIndex]).click({ force: true });
     });
 });
+
+/**
+ * `cy.safeType(getElement, value, options?)`
+ * Type into an input with retry + value verification — protects against sites
+ * that wipe a field mid-operation (Vue re-renders, AJAX callbacks). On
+ * mismatch, retries up to `maxAttempts` times; final fallback writes the value
+ * directly via $el.val() + trigger('input','change'). Always blurs after a
+ * successful type so any blur-bound validation fires.
+ *
+ * @param {Function|Cypress.Chainable} getElement - Function returning a chainable
+ *        (preferred — allows re-querying after element detach), or a chainable directly
+ * @param {string} value - Value to type
+ * @param {{attempt?: number, maxAttempts?: number}} [options] - Internal retry state
+ * @returns {Cypress.Chainable}
+ */
+Cypress.Commands.add('safeType', (getElement, value, options = {}) => {
+  const attempt = options.attempt || 1;
+  const maxAttempts = options.maxAttempts || 3;
+  const element = typeof getElement === 'function' ? getElement() : getElement;
+
+  return element
+    .should('exist')
+    .should('be.visible')
+    .clear({ force: true })
+    .type(value, { force: true, delay: 50, timeout: 5000 })
+    .then(($el) => {
+      if (!$el || !$el.length) {
+        cy.log(`⚠️ safeType target missing after type (attempt ${attempt}/${maxAttempts}).`);
+        if (attempt < maxAttempts) {
+          return cy.wait(200).then(() => cy.safeType(getElement, value, { attempt: attempt + 1, maxAttempts }));
+        }
+        throw new Error('safeType target missing after type');
+      }
+
+      const normalizeValue = (input) => typeof input === 'string' ? input.trim().toLowerCase() : input;
+      const typedValue = $el.val();
+      const expectedNormalized = normalizeValue(value);
+      const actualNormalized = normalizeValue(typedValue);
+
+      if (actualNormalized !== expectedNormalized) {
+        cy.log(`⚠️ safeType attempt ${attempt}/${maxAttempts}: expected='${value}' actual='${typedValue}'`);
+        if (attempt < maxAttempts) {
+          return cy.wait(200).then(() => cy.safeType(getElement, value, { attempt: attempt + 1, maxAttempts }));
+        }
+
+        cy.log('⚠️ safeType final fallback writing value directly.');
+        return cy.wrap($el).then(($input) => {
+          $input.val(value);
+          return cy.wrap($input)
+            .trigger('input')
+            .trigger('change')
+            .should(($finalInput) => {
+              const finalValue = normalizeValue($finalInput.val());
+              expect(finalValue).to.equal(expectedNormalized);
+            });
+        });
+      }
+
+      return cy.wrap($el).blur().should(($input) => {
+        const finalValue = normalizeValue($input.val());
+        expect(finalValue).to.equal(expectedNormalized);
+      });
+    });
+});
