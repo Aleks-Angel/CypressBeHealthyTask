@@ -1,12 +1,14 @@
 {
   "parserOptions": {
-    "ecmaVersion": 2020,
+    "ecmaVersion": 2022,
     "sourceType": "module"
   },
+  "cypress/unsafe-to-chain-command": "off",
   "env": {
     "browser": true,
     "es6": true,
-    "cypress/globals": true
+    "cypress/globals": true,
+    "node": true
   },
   "extends": [
     "eslint:recommended",

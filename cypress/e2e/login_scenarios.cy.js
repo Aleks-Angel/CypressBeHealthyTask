@@ -1,13 +1,13 @@
 import { loginPage } from '../support/page_objects/LoginPage';
 
+const TARGET_URL = 'https://www.futunatura.hr/';
 
 describe('Futunatura Login Functionality', () => {
   
   beforeEach(function () {
-    //cy.intercept({ resourceType: /xhr|fetch/ }, { log: false })
     cy.fixture('checkoutData').as('data');
-    cy.visit('/');
-    cy.bypassCookieBanner();
+    cy.log(`🎯 Testing: ${TARGET_URL}`);
+    cy.visitStorefront(TARGET_URL);
     
     loginPage.loginHeader.contains('Prijava').click();
     loginPage.loginForm.should('be.visible');
@@ -27,11 +27,9 @@ describe('Futunatura Login Functionality', () => {
     const { validEmailUser } = this.data.loginData;
     
     loginPage.login(validEmailUser.email, validEmailUser.password);
-    //cy.url().should('include', '/account', { timeout: 20000 });
     loginPage.customerHeader.should('be.visible').and('not.be.empty');
     loginPage.userProfilePage.should('contain', 'Moj profil');
     
-
     loginPage.logout();
   });
 

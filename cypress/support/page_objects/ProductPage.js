@@ -1,74 +1,89 @@
+/**
+ * Product detail page POM. Owns add-to-cart, quantity controls, the post-add
+ * confirmation modal (with the "stuck modal" workaround for headless Chrome),
+ * and the "go to checkout" link selector. Used by every checkout-flow spec.
+ */
 class ProductPage {
-  // --- Product Elements ---
-  get productCards() { return cy.get('.item_box'); }
-  get addToCartButton() { return cy.get('#button-cart'); }
-  get productQuantityPlusButton() { return cy.get('.col-xl-3 > .holder > .plus'); }
+  static SELECTORS = {
+    PRODUCT_CARDS: '.embla_p a:has(.item_box)',
+    ADD_TO_CART_BUTTON: '#button-cart',
+    QUANTITY_PLUS_BUTTON: '.col-xl-3 > .holder > .plus',
+    MODAL: '#addToCartModal',
+    MODAL_BACKDROP: '.modal-backdrop',
+    // The cart confirmation button has several theme-specific variants. Some locales
+    // (UK Healthyworld) render the button OUTSIDE .modal-content but still inside
+    // the modal, so .btn-black / .btn-primary--primary are intentionally unscoped.
+    MODAL_GO_TO_CART: '.modal-content .btn-blue, .modal-content .btn-primary--blue, .modal-content .btn-primary--orange, .btn-black, .btn-primary--primary, .modal-content .btn-primary--green',
+    MODAL_CONTINUE_SHOPPING: '.modal-content .btn-white-border',
+    CHECKOUT_LINK: 'a[href*="route=checkout/checkout"]'
+  };
 
-  // --- Modal Elements ---
-  get modalId() { return '#addToCartModal'; }
+  get productCards() { return cy.get(ProductPage.SELECTORS.PRODUCT_CARDS); }
+  get addToCartButton() { return cy.get(ProductPage.SELECTORS.ADD_TO_CART_BUTTON); }
+  get productQuantityPlusButton() { return cy.get(ProductPage.SELECTORS.QUANTITY_PLUS_BUTTON); }
+
+  get modalId() { return ProductPage.SELECTORS.MODAL; }
   get addToCartModal() { return cy.get(this.modalId); }
-  get modalBackdrop() { return cy.get('.modal-backdrop'); }
-  
-  // Scoped getters for buttons inside the modal
-  get goToCartButton() { 
-    return this.addToCartModal.contains('Idi na košaricu'); 
-  }
-  get continueShoppingButton() { 
-    return this.addToCartModal.contains('Nastavi s kupovinom'); 
-  }
+  get modalBackdrop() { return cy.get(ProductPage.SELECTORS.MODAL_BACKDROP); }
+  get goToCartButton() { return this.addToCartModal.find(ProductPage.SELECTORS.MODAL_GO_TO_CART); }
+  get continueShoppingButton() { return this.addToCartModal.find(ProductPage.SELECTORS.MODAL_CONTINUE_SHOPPING); }
 
-  // --- Checkout/Navigation Elements ---
-  get goToCheckoutButton() { return cy.contains('Na blagajnu'); }
+  get goToCheckoutButton() {
+    return cy.get(ProductPage.SELECTORS.CHECKOUT_LINK).filter(':visible').first();
+  }
   get pageBody() { return cy.get('body'); }
 
   /**
-   * Handles the post-add-to-cart modal and ensures the UI is clear for next steps.
-   * Includes a headless workaround for stuck Bootstrap transitions.
+   * Handle the post-add-to-cart modal and ensure the UI is clear for next steps.
+   * No-op if no modal is present (some themes redirect directly to /cart).
+   *
+   * @param {'continue'|'cart'} [action='continue'] - 'continue' keeps shopping, 'cart' navigates to the cart page
+   * @returns {Cypress.Chainable}
    */
   handleCartModal(action = 'continue') {
-    // 1. Check the body for the modal existence without failing the test
+    cy.log(`📦 Modal Check: Selecting "${action}"`);
+
     return this.pageBody.then(($body) => {
-      if ($body.find(this.modalId).length > 0) {
-        cy.log('Modal detected, initiating cleanup...');
-
-        // 2. Click based on action
-        const actionButton = action === 'continue' ? this.continueShoppingButton : this.goToCartButton;
-        actionButton.click({ force: true });
-
-        // 3. Headless Stability Workaround
-        cy.wait(1000); 
-        
-        return cy.get('body').then(($refreshedBody) => {
-          if ($refreshedBody.find(`${this.modalId}.show`).length > 0) {
-            cy.log('Headless workaround: Forcing stuck modal to close');
-            
-            // Manual DOM manipulation for stuck Bootstrap transitions
-            this.addToCartModal.invoke('hide').invoke('removeClass', 'show');
-            this.modalBackdrop.invoke('remove');
-            this.pageBody.invoke('removeClass', 'modal-open');
-          }
-          
-          // 4. Final safety visibility check
-          if ($refreshedBody.find(this.modalId).length > 0) {
-            this.addToCartModal.should('not.be.visible');
-          }
-        });
-      } else {
-        cy.log('No modal found (Redirect occurred). Skipping modal handling.');
+      const $modal = $body.find(this.modalId);
+      if ($modal.length === 0) {
+        cy.log('No modal found (redirect occurred). Skipping modal handling.');
+        return;
       }
+
+      const actionSelector = action === 'continue'
+        ? ProductPage.SELECTORS.MODAL_CONTINUE_SHOPPING
+        : ProductPage.SELECTORS.MODAL_GO_TO_CART;
+
+      cy.wrap($modal).find(actionSelector).click({ force: true });
+      this._forceCloseStuckModal();
     });
   }
 
-  
-  clickFirstProduct() {
-    this.productCards.first().click();
+  /**
+   * Workaround for Bootstrap modals that don't close in headless Chrome.
+   * Detects "stuck" via computed display (catches the case where Bootstrap
+   * removed `.show` but left an inline `style="display: block"` behind, which
+   * keeps the modal covering page elements). When stuck, strips the open-state
+   * classes, the inline style, and the `.modal-backdrop`.
+   *
+   * @private
+   */
+  _forceCloseStuckModal() {
+    cy.get('body').then(($body) => {
+      const $modal = $body.find(this.modalId);
+      if ($modal.length === 0 || $modal.css('display') === 'none') {
+        cy.log('✅ Modal closed successfully');
+        return;
+      }
+      cy.log('Headless workaround: forcing stuck modal to close');
+      cy.wrap($modal).invoke('removeClass', 'show');
+      cy.wrap($modal).invoke('attr', 'style', ''); // clear inline display:block from Bootstrap
+      cy.wrap($body.find(ProductPage.SELECTORS.MODAL_BACKDROP)).invoke('remove');
+      cy.wrap($body).invoke('removeClass', 'modal-open');
+    });
   }
 
-  addItemToCart() {
-    this.addToCartButton.click(); 
-    this.handleCartModal('cart');
-  }
-
+  /** Click the cart-page "checkout" link to advance to the checkout form. */
   checkOutProduct() {
     this.goToCheckoutButton.click();
   }

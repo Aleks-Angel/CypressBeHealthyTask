@@ -2,47 +2,50 @@ import { productPage } from '../support/page_objects/ProductPage';
 import { checkoutPage } from '../support/page_objects/CheckoutPage';
 import { homePage } from '../support/page_objects/HomePage';
 
+// Hardcoded to Futunatura HR: this spec uses Croatian search terms and Futunatura's
+// burger-menu / submenu selectors (subMenuVitamins, miltiVitaminsLink, etc.) which
+// don't exist on other brands. Don't change without also revisiting those selectors.
+const TARGET_URL = 'https://www.futunatura.hr/';
+
 describe('Futunatura Purchase Journey with Data Fixtures', () => {
-  
   beforeEach(function () {
     cy.fixture('checkoutData').as('data');
-    
-    cy.visit('/');
-    cy.bypassCookieBanner();
+
+    cy.log(`🎯 Testing: ${TARGET_URL}`);
+    cy.visitStorefront(TARGET_URL);
   });
 
   it('completes a partial checkout flow using fixture data', function () {
     const user = this.data.validUser;
     const primaryProduct = this.data.searchTerms.primary;
     const secondaryProduct = this.data.searchTerms.secondary;
-    
-    // Search for and add primary product to cart
+
+    // Don't assert on URL slug — Futunatura's own slugs occasionally diverge from the
+    // search term (e.g. /magenzij-sumece-tablete for "Magnezij"). Verifying the product
+    // page rendered (Add-to-Cart button visible) is the real intent here.
     cy.searchProduct(primaryProduct);
     cy.selectFirstProduct();
-    cy.url().should('include', primaryProduct.toLowerCase().replace(/\s+/g, '-'));
+    productPage.addToCartButton.should('be.visible');
     productPage.productQuantityPlusButton.click();
     productPage.addToCartButton.click({ force: true });
 
     productPage.handleCartModal('continue');
     cy.get('input.search_input').should('be.visible').and('not.be.disabled');
     productPage.pageBody.should('not.have.class', 'modal-open');
-    
-    // Search for secondary product
+
     cy.searchProduct(secondaryProduct);
     cy.selectFirstProduct();
-    cy.url().should('include', secondaryProduct.toLowerCase().replace(/\s+/g, '-'));
+    productPage.addToCartButton.should('be.visible');
     productPage.addToCartButton.click({ force: true });
     productPage.handleCartModal('cart');
-    
-    // Proceed to checkout
-    cy.url().should('include', '/cart', { timeout: 15000 })
+
+    cy.url().should('include', '/cart', { timeout: 15000 });
     productPage.checkOutProduct();
     checkoutPage.fillCustomerInfo(user);
     checkoutPage.submitOrderButton.should('be.enabled');
   });
 
-  it('add product from burger menu and remove from checkout bag', function() {
-    
+  it('adds product from burger menu and removes it from cart', function () {
     homePage.hamburgerDesktopMenu.click({ force: true });
     homePage.subMenuVitamins.click();
     homePage.subMenuMultivitamins.click();
@@ -51,11 +54,13 @@ describe('Futunatura Purchase Journey with Data Fixtures', () => {
     cy.selectFirstProduct();
     productPage.addToCartButton.click();
 
-    // Fix 2: Handle modal here too to uncover the Cart Basket Icon
+    // Modal must close before the basket icon becomes clickable.
     productPage.handleCartModal('continue');
-    homePage.cartBasketIcon.should('be.visible').should('not.have.class', 'disabled').click();
+    // Split the chain — the cart icon re-renders when the count badge updates after
+    // add-to-cart, which detaches the <svg> we matched on. Re-query for the click.
+    homePage.cartBasketIcon.should('be.visible').and('not.have.class', 'disabled');
+    homePage.cartBasketIcon.click();
     homePage.cartDeleteItemButton.click();
     homePage.cartCloseButton.click();
-      
   });
 });
