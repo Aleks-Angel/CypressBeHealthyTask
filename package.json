@@ -5,6 +5,25 @@
   "scripts": {
     "cypress:open": "cypress open",
     "cypress:run": "cypress run --browser chrome",
+    "cypress:run:random": "node run-random.js",
+    "cypress:run:random:headed": "node run-random.js --headed",
+    "cypress:open:futunatura:ro": "cypress open --env selectedBaseUrl=https://www.futunatura.ro",
+    "cypress:open:futunatura:si": "cypress open --env selectedBaseUrl=https://www.futunatura.si",
+    "cypress:open:futunatura:hr": "cypress open --env selectedBaseUrl=https://www.futunatura.hr",
+    "cypress:open:healthyworld:de": "cypress open --env selectedBaseUrl=https://www.healthyworldshop.de",
+    "cypress:open:healthyworld:it": "cypress open --env selectedBaseUrl=https://www.healthy-world.it",
+    "cypress:open:onenergy:ro": "cypress open --env selectedBaseUrl=https://www.on-energy.ro",
+    "cypress:open:onenergy:de": "cypress open --env selectedBaseUrl=https://www.onenergynutrition.de",
+    "cypress:open:purely:ro": "cypress open --env selectedBaseUrl=https://www.purely.ro",
+    "cypress:open:purely:de": "cypress open --env selectedBaseUrl=https://www.purely-nutrition.de",
+    "cypress:open:sweetbites:de": "cypress open --env selectedBaseUrl=https://www.sweetnutri.de",
+    "cypress:open:sweetbites:pl": "cypress open --env selectedBaseUrl=https://www.sweetnutri.pl",
+    "cypress:run:futunatura:all": "node open-cypress.js futunatura all",
+    "cypress:run:healthyworld:all": "node open-cypress.js healthyworld all",
+    "cypress:run:onenergy:all": "node open-cypress.js onenergy all",
+    "cypress:run:purely:all": "node open-cypress.js purely all",
+    "cypress:run:sweetbites:all": "node open-cypress.js sweetbites all",
+    "cypress:open:custom": "node open-cypress.js",
     "report:generate": "npx mochawesome-merge cypress/results/*.json > cypress/results/report.json && npx marg cypress/results/report.json --reportDir cypress/reports",
     "test:ci": "npm run cypress:run && npm run report:generate"
   },
@@ -13,14 +32,15 @@
   "license": "ISC",
   "description": "Cypress E2E automation for Futunatura.hr",
   "dependencies": {
-    "mochawesome": "^7.1.4",
-    "mochawesome-merge": "^4.3.0",
-    "mochawesome-report-generator": "^6.2.0"
+    "glob": "^13.0.6",
+    "mochawesome": "^7.1.4"
   },
   "devDependencies": {
-    "cypress": "^15.11.0",
+    "cypress": "^15.15.0",
     "cypress-repeat": "^2.3.10",
     "eslint": "^8.57.1",
-    "eslint-plugin-cypress": "^2.15.2"
+    "eslint-plugin-cypress": "^2.15.2",
+    "mochawesome-merge": "^5.1.1",
+    "mochawesome-report-generator": "^6.3.2"
   }
 }

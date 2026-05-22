@@ -6,13 +6,15 @@ const viewports = [
   { device: 'Desktop', width: 1280, height: 720 }
 ];
 
+const TARGET_URL = 'https://www.futunatura.hr/';
+
 describe('Futunatura UI Responsiveness', () => {
   viewports.forEach((viewport) => {
     context(`Testing on ${viewport.device}`, () => {
       beforeEach(() => {
         cy.viewport(viewport.width, viewport.height);
-        cy.visit('/');
-        cy.bypassCookieBanner();
+        cy.log(`🎯 Testing: ${TARGET_URL}`);
+        cy.visitStorefront(TARGET_URL);
       });
 
       it('should display the correct navigation style', () => {
@@ -30,4 +32,3 @@ describe('Futunatura UI Responsiveness', () => {
     });
   });
 });
- 

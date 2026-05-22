@@ -1,29 +1,43 @@
-name: Futunatura E2E Tests
-on: [push]
+name: Domain Visit (Random)
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    # Informational status check on PRs targeting main — not blocking in branch
+    # protection, since the random brand×locale pick can flake for reasons
+    # unrelated to the PR's changes.
+    branches: [main]
+  schedule:
+    # Hourly smoke against a random brand × language
+    - cron: '0 * * * *'
+  workflow_dispatch:
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
-  cypress-run:
+  domain-visit-random:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Cypress run
-        # This action handles caching node_modules and running the tests
-        uses: cypress-io/github-action@v6
+      - uses: actions/setup-node@v4
         with:
-          # This starts the run in headless mode by default
-          browser: chrome
-        env:
-          # If you use secrets for any credentials
-          CYPRESS_RECORD_KEY: ${{ secrets.CYPRESS_RECORD_KEY }}
+          node-version: '22'
+          cache: 'npm'
 
-      - name: Upload Test Results
+      - run: npm ci
+
+      - name: Run domain_visit.cy.js against a random brand × language
+        run: npm run cypress:run:random
+
+      - name: Upload Cypress results
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: cypress-results
           path: |
-            cypress/screenshots
-            cypress/videos
-            cypress/results
+            cypress/results/screenshots
+            cypress/results/videos
+            cypress/results/final-report.html

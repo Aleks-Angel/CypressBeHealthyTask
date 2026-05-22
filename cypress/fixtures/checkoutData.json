@@ -1,15 +1,61 @@
 {
   "validUser": {
-    "email": "tester@example.com",
+    "email": "aleksandar.angelkoski@behealthy-group.com",
     "firstName": "Aleks",
     "lastName": "Testović",
     "phone": "0912345678",
     "address1": "Ulica 1",
     "address2": "12",
-    "city": "zagreb",
-    "postalCode": "1000"
+    "city": {
+      "en": "Ljubljana",
+      "ro": "Bucuresti",
+      "bg": "Burgas",
+      "sk": "Košice",
+      "gr": "Athens",
+      "es": "Madrid",
+      "hr": "Zagreb",
+      "cz": "Prague",
+      "hu": "Budapest",
+      "pl": "Warsaw",
+      "pt": "Lisbon",
+      "fr": "Paris",
+      "si": "Ljubljana",
+      "it": "Milan",
+      "uk": "London",
+      "at": "Wien",
+      "de": "Berlin"
+    },
+    "postalCode": {
+          "si": "1000",
+          "bg": "1000",
+          "es": "28001",
+          "gr": "16121",
+          "hr": "10000",
+          "sk": "040 01",
+          "cz": "10000",
+          "hu": "1011",
+          "pl": "10-100",
+          "pt": "1000-205",
+          "fr": "10000",
+          "ro": "100000",
+          "it": "20100",
+          "de": "10115",
+          "at": "1010",
+          "uk": "1000"
+    },
+    "blockAddress": "Bloc A",
+    "scaleAddress": "Scara 1",
+    "floorAddress": "3",
+    "apartmentAddress": "42",
+    "countyAddress": {
+      "ro": "Bucuresti",
+      "bg": "Burgas",
+      "sk": "Košický",
+      "it": "Milano",
+      "en": "default"
+    }
   },
-
+  
   "invalidUser": {
     "email": "wrong-email-format",
     "firstName": "",
@@ -19,6 +65,11 @@
   "searchTerms": {
     "primary": "Vitamin C",
     "secondary": "Magnezij"
+  },
+
+  "paymentMethods": {
+    "bankTransferLangs": ["si", "hr", "sk", "hu", "fr", "de", "at"],
+    "defaultMethod": "cod"
   },
 
   "validationMessages": {

@@ -12,3 +12,6 @@ mochawesome-report/
 # Environment and Logs
 *.log
 .env
+
+# Local snapshots / undo buffer — not for version control
+_backup/

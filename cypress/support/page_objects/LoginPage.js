@@ -1,5 +1,9 @@
+/**
+ * Login modal POM. Used by login_scenarios.cy.js against Futunatura's
+ * `#kbexit_container` login overlay. Selectors based on the modal markup —
+ * if Futunatura redesigns this modal, only this file should need touching.
+ */
 class LoginPage {
-  // Selectors based on the modal structure in your screenshot
   get loginModal() { return cy.get('#kbexit_container'); }
   get emailInput() { return cy.get('#login-form input[name="email"]'); }
   get passwordInput() { return cy.get('#login-form input[name="password"]'); }
@@ -12,14 +16,19 @@ class LoginPage {
   get errorMessage() { return cy.get('.alert'); }
   get customerHeader() { return cy.get('h1.customer_name'); }
 
+  /**
+   * Type credentials and submit. Each field is optional — empty-fields test
+   * cases pass `undefined` for both to assert client-side validation.
+   * @param {string} [email] - Email to enter. Skipped if falsy.
+   * @param {string} [password] - Password to enter. Skipped if falsy.
+   */
   login(email, password) {
     if (email) this.emailInput.clear().type(email);
     if (password) this.passwordInput.clear().type(password);
     this.loginButton.click();
-
-    //this.loginForm.should('not.exist');
   }
 
+  /** Click the logout link in the desktop profile menu. */
   logout() {
     this.logoutButton.scrollIntoView().should('be.visible').click();
   }
