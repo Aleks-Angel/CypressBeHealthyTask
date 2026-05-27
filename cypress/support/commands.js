@@ -87,7 +87,7 @@ Cypress.Commands.add('searchProduct', (query) => {
     .should('not.be.disabled')
     .type(`${query}{enter}`);
 
-  cy.get('.item_box, .product-layout, .embla__container .product-card')
+  cy.get(PRODUCT_CARD_SELECTORS)
     .filter(':visible')
     .should('have.length.greaterThan', 0);
 

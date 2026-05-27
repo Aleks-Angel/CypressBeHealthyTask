@@ -5,8 +5,10 @@
  */
 class ProductPage {
   static SELECTORS = {
-    PRODUCT_CARDS: '.embla_p a:has(.item_box)',
-    ADD_TO_CART_BUTTON: '#button-cart',
+    // Add-to-cart button — `#button-cart` covers the OpenCart-themed BeHealthy
+    // brands (Futunatura/Purely/Healthy/etc.); `.add-to-cart__submit-button`
+    // covers futupets, whose markup uses semantic class names instead of an id.
+    ADD_TO_CART_BUTTON: '#button-cart, .add-to-cart__submit-button',
     QUANTITY_PLUS_BUTTON: '.col-xl-3 > .holder > .plus',
     MODAL: '#addToCartModal',
     MODAL_BACKDROP: '.modal-backdrop',
@@ -15,10 +17,15 @@ class ProductPage {
     // the modal, so .btn-black / .btn-primary--primary are intentionally unscoped.
     MODAL_GO_TO_CART: '.modal-content .btn-blue, .modal-content .btn-primary--blue, .modal-content .btn-primary--orange, .btn-black, .btn-primary--primary, .modal-content .btn-primary--green',
     MODAL_CONTINUE_SHOPPING: '.modal-content .btn-white-border',
-    CHECKOUT_LINK: 'a[href*="route=checkout/checkout"]'
+    CHECKOUT_LINK: 'a[href*="route=checkout/checkout"]',
+    // Futupets homepage layout — multiple horizontal carousels, each in a
+    // `<section class="card-slider-section">`. The "Buy & Save" slider used by
+    // tests is the 4th one (0-indexed: 3). Index lives in the getter rather
+    // than SELECTORS because it's positional, not a CSS string.
+    BUY_AND_SAVE_SLIDER: 'section.card-slider-section',
+    PRODUCT_CARD_IN_SLIDER: 'a.product-card'
   };
 
-  get productCards() { return cy.get(ProductPage.SELECTORS.PRODUCT_CARDS); }
   get addToCartButton() { return cy.get(ProductPage.SELECTORS.ADD_TO_CART_BUTTON); }
   get productQuantityPlusButton() { return cy.get(ProductPage.SELECTORS.QUANTITY_PLUS_BUTTON); }
 
@@ -34,6 +41,22 @@ class ProductPage {
   get pageBody() { return cy.get('body'); }
 
   /**
+   * Click target for the "Buy & Save" slider on the futupets homepage — the
+   * first product card inside the 4th `<section class="card-slider-section">`.
+   * Used as the futupets entry point into the order flow because futupets has
+   * no /search route in the layout we test; the homepage is the canonical
+   * starting point.
+   *
+   * @returns {Cypress.Chainable<JQuery<HTMLAnchorElement>>}
+   */
+  get buyAndSaveProduct() {
+    return cy.get(ProductPage.SELECTORS.BUY_AND_SAVE_SLIDER)
+      .eq(3)
+      .find(ProductPage.SELECTORS.PRODUCT_CARD_IN_SLIDER)
+      .first();
+  }
+
+  /**
    * Handle the post-add-to-cart modal and ensure the UI is clear for next steps.
    * No-op if no modal is present (some themes redirect directly to /cart).
    *
@@ -44,8 +67,7 @@ class ProductPage {
     cy.log(`📦 Modal Check: Selecting "${action}"`);
 
     return this.pageBody.then(($body) => {
-      const $modal = $body.find(this.modalId);
-      if ($modal.length === 0) {
+      if ($body.find(this.modalId).length === 0) {
         cy.log('No modal found (redirect occurred). Skipping modal handling.');
         return;
       }
@@ -54,7 +76,23 @@ class ProductPage {
         ? ProductPage.SELECTORS.MODAL_CONTINUE_SHOPPING
         : ProductPage.SELECTORS.MODAL_GO_TO_CART;
 
-      cy.wrap($modal).find(actionSelector).click({ force: true });
+      // Wait for Bootstrap's open transition to commit (`.show` class) before
+      // searching inside the modal — find()-ing buttons before the modal has
+      // transitioned can race past empty inner DOM. This is the standard
+      // Bootstrap modal lifecycle and applies to every brand.
+      //
+      // FUTUPETS-SIDE BUG (as of 2026-05, reported to dev team): on certain
+      // locales (sk, ro, pl, at), a consumer script references
+      // `EmblaCarouselFade` BEFORE the defining script has loaded —
+      // `ReferenceError` fires during initial page load and breaks the
+      // page's click-handler init for that page's lifetime. The modal
+      // never reaches `.show` because Bootstrap's open trigger was never
+      // wired up. Cached loads (Cypress retry) don't hit the race because
+      // disk-cached JS serves in the correct order. Worked around in
+      // navigateToCheckout via cy.reload() to prime the cache. Remove that
+      // workaround once futupets fixes their script loading order.
+      cy.get(this.modalId).should('have.class', 'show')
+        .find(actionSelector).click({ force: true });
       this._forceCloseStuckModal();
     });
   }

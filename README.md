@@ -32,7 +32,7 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for the full breakdown of how the code is
 
 ### Prerequisites
 
-- Node.js 22+ (CI runs on Node 22; lower versions may work but aren't validated)
+- Node.js 22+ (CI runs on Node 24; lower versions may work but aren't validated)
 - npm
 
 ### Installation
@@ -165,7 +165,7 @@ jobs:
 
       - uses: actions/setup-node@v6
         with:
-          node-version: '22'
+          node-version: '24'
           cache: 'npm'
 
       - run: npm ci

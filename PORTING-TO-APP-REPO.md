@@ -146,7 +146,7 @@ jobs:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
         with:
-          node-version: '22'
+          node-version: '24'
           cache: 'npm'
           cache-dependency-path: qa/package-lock.json
       - run: npm ci

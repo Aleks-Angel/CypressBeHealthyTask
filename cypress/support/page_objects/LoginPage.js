@@ -4,17 +4,33 @@
  * if Futunatura redesigns this modal, only this file should need touching.
  */
 class LoginPage {
-  get loginModal() { return cy.get('#kbexit_container'); }
-  get emailInput() { return cy.get('#login-form input[name="email"]'); }
-  get passwordInput() { return cy.get('#login-form input[name="password"]'); }
-  get loginButton() { return cy.get('#login-btn'); }
-  get logoutButton() { return cy.get('.desktop_profile_menu').find('a[href*="logout"]'); }
-  get loginHeader() { return cy.get('.header_holder'); }
-  get loginForm() { return cy.get('#login-form'); }
-  get userProfilePage() { return cy.get('.breadcrumb'); }
-  get accountHeading() { return cy.get('h1'); }
-  get errorMessage() { return cy.get('.alert'); }
-  get customerHeader() { return cy.get('h1.customer_name'); }
+  static SELECTORS = {
+    LOGIN_MODAL: '#kbexit_container',
+    EMAIL_INPUT: '#login-form input[name="email"]',
+    PASSWORD_INPUT: '#login-form input[name="password"]',
+    LOGIN_BUTTON: '#login-btn',
+    // `.desktop_profile_menu a[href*="logout"]` is the combined form of the
+    // previous `.desktop_profile_menu`.find(`a[href*="logout"]`) chain.
+    LOGOUT_BUTTON: '.desktop_profile_menu a[href*="logout"]',
+    LOGIN_HEADER: '.header_holder',
+    LOGIN_FORM: '#login-form',
+    USER_PROFILE_PAGE: '.breadcrumb',
+    ACCOUNT_HEADING: 'h1',
+    ERROR_MESSAGE: '.alert',
+    CUSTOMER_HEADER: 'h1.customer_name'
+  };
+
+  get loginModal() { return cy.get(LoginPage.SELECTORS.LOGIN_MODAL); }
+  get emailInput() { return cy.get(LoginPage.SELECTORS.EMAIL_INPUT); }
+  get passwordInput() { return cy.get(LoginPage.SELECTORS.PASSWORD_INPUT); }
+  get loginButton() { return cy.get(LoginPage.SELECTORS.LOGIN_BUTTON); }
+  get logoutButton() { return cy.get(LoginPage.SELECTORS.LOGOUT_BUTTON); }
+  get loginHeader() { return cy.get(LoginPage.SELECTORS.LOGIN_HEADER); }
+  get loginForm() { return cy.get(LoginPage.SELECTORS.LOGIN_FORM); }
+  get userProfilePage() { return cy.get(LoginPage.SELECTORS.USER_PROFILE_PAGE); }
+  get accountHeading() { return cy.get(LoginPage.SELECTORS.ACCOUNT_HEADING); }
+  get errorMessage() { return cy.get(LoginPage.SELECTORS.ERROR_MESSAGE); }
+  get customerHeader() { return cy.get(LoginPage.SELECTORS.CUSTOMER_HEADER); }
 
   /**
    * Type credentials and submit. Each field is optional — empty-fields test

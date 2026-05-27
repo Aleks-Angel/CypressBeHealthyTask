@@ -7,15 +7,18 @@
 // Pass `--headed` to open the Cypress UI instead of headless Chrome.
 // Pass `--browser <name>` to override the default (chrome).
 
-const { webApps, languages, getTargetUrl } = require('./cypress/support/domains');
+const { webApps, getTargetUrl, supportedLocalesFor } = require('./cypress/support/domains');
 const { spawn, execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
+// Pick a brand first, then pick a locale from THAT brand's supported set
+// (i.e. excluding entries in `excludedLocales` — e.g. futupets has no FR/ES/PT/UK).
+// Otherwise CI could randomly select a known-bad combo and burn a run on it.
 const app = pick(webApps);
-const lang = pick(languages);
+const lang = pick(supportedLocalesFor(app));
 const url = getTargetUrl(app, lang);
 
 const args = process.argv.slice(2);
