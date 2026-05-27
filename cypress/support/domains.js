@@ -12,7 +12,13 @@ const webApps = [
   'https://www.erefit.',
   'https://www.mycoway.',
   'https://www.purelynutrition.',
-  'https://www.sweetbites.'
+  'https://www.sweetbites.',
+  // futupets has no `www.` subdomain — getTargetUrl appends the locale directly
+  // (e.g. `https://futupets.si`). The checkout flow is the same as the other
+  // BeHealthy brands (`/blagajna` etc.) — only the product-entry step differs:
+  // futupets uses its homepage "Buy & Save" slider via productPage.buyAndSaveProduct
+  // instead of search-then-pick-first-card. Brand-aware branch in navigateToCheckout.
+  'https://futupets.'
 ];
 
 const brandOverrides = {
@@ -47,7 +53,15 @@ const languages = ['si', 'hr', 'it', 'hu', 'de', 'at', 'ro', 'cz', 'sk', 'pl', '
 
 // Identifiers used to detect which brand a given URL belongs to (substring match).
 // Order matters when one brand string is a substring of another — none currently overlap.
-const KNOWN_BRANDS = ['futunatura', 'healthy', 'erefit', 'mycoway', 'purely', 'energy', 'sweet'];
+const KNOWN_BRANDS = ['futunatura', 'healthy', 'erefit', 'mycoway', 'purely', 'energy', 'sweet', 'futupets'];
+
+// Brand-specific locale exclusions. Each entry lists locales NOT supported (or
+// not deployed) for that brand — runners filter these out before iterating, and
+// the random picker re-rolls when it lands on an excluded combo. Brand keys are
+// matched against `selectedApp` via substring containment, same as KNOWN_BRANDS.
+const excludedLocales = {
+  futupets: ['fr', 'es', 'pt', 'uk']
+};
 
 /**
  * Build the target URL for a given brand base + locale.
@@ -64,8 +78,24 @@ export function getTargetUrl(appBase, lang) {
   return `${appBase}${lang}`;
 }
 
+/**
+ * Resolve the list of locales a given brand actually supports — drops any
+ * locale listed in `excludedLocales` for that brand. Brand-key matching is
+ * substring-based against the appBase (e.g. `'https://futupets.'` matches
+ * the `futupets` key).
+ *
+ * @param {string} appBase - Entry from `webApps`
+ * @returns {string[]} Locales (subset of `languages`) supported for this brand
+ */
+export function supportedLocalesFor(appBase) {
+  const brand = Object.keys(excludedLocales).find(key => appBase.toLowerCase().includes(key));
+  const skip = brand ? excludedLocales[brand] : [];
+  return languages.filter(lang => !skip.includes(lang));
+}
+
 export {
   webApps,
   languages,
-  KNOWN_BRANDS
+  KNOWN_BRANDS,
+  excludedLocales
 };

@@ -39,6 +39,7 @@ class CheckoutPage {
     COUNTY_FIELD: '#vs2__combobox',
     COUNTY_INPUT: '#vs2__combobox input.vs__search',
     COUNTY_LIST: '#vs2__listbox',
+    CITY_FIELD: '#vs3__combobox',
     CITY_FIELD_1: '#vs3__combobox input.vs__search',
     CITY_LIST: '#vs3__listbox',
     NOTES_TEXTAREA: '#comment-collapse textarea.comment_text_area',
@@ -71,8 +72,8 @@ class CheckoutPage {
   get cancelOrderButton() { return cy.get(CheckoutPage.SELECTORS.CANCEL_BUTTON); }
   get cancelYesButton() { return cy.get(CheckoutPage.SELECTORS.CANCEL_CONFIRM); }
   get canceledOrder() { return cy.get(CheckoutPage.SELECTORS.CANCELED_ORDER); }
-  get countyAddressField() { return cy.get('#vs2__combobox'); }
-  get scaleAddressField() { return cy.get('#input-payment-custom-field4'); }
+  get countyAddressField() { return cy.get(CheckoutPage.SELECTORS.COUNTY_FIELD); }
+  get scaleAddressField() { return cy.get(CheckoutPage.SELECTORS.SCALE_ADDRESS); }
   get blockAddressField() { return this._byBgOrDefault('BLOCK_ADDRESS_BG', 'BLOCK_ADDRESS_DEFAULT'); }
   get floorAddressField() { return this._byBgOrDefault('FLOOR_ADDRESS_BG', 'FLOOR_ADDRESS_DEFAULT'); }
   get apartmentAddressField() { return this._byBgOrDefault('APARTMENT_ADDRESS_BG', 'APARTMENT_ADDRESS_DEFAULT'); }
@@ -343,7 +344,7 @@ class CheckoutPage {
     cy.log('📝 Step: Filling RO/BG Regional Address');
 
     return this._selectFromVueSelect(
-      '#vs2__combobox',
+      CheckoutPage.SELECTORS.COUNTY_FIELD,
       CheckoutPage.SELECTORS.COUNTY_INPUT,
       CheckoutPage.SELECTORS.COUNTY_LIST,
       county
@@ -351,15 +352,15 @@ class CheckoutPage {
       cy.log(`📍 Selecting City: ${city}`);
       // Wait for Vue to render the city combobox in response to county selection,
       // AND for the cities API call to finish populating options.
-      return cy.get('#vs3__combobox', { timeout: 15000 }).should('exist').should('be.visible');
+      return cy.get(CheckoutPage.SELECTORS.CITY_FIELD, { timeout: 15000 }).should('exist').should('be.visible');
     }).then(() => cy.wait(900)).then(() => {
       // Re-verify vs3 is still mounted after the wait. On slower brands (BG
       // mycoway) the cities API response can re-render the city combobox
       // mid-wait, leaving _selectFromVueSelect's 10s lookup to miss it.
-      return cy.get('#vs3__combobox', { timeout: 15000 }).should('exist').should('be.visible');
+      return cy.get(CheckoutPage.SELECTORS.CITY_FIELD, { timeout: 15000 }).should('exist').should('be.visible');
     }).then(() => {
       return this._selectFromVueSelect(
-        '#vs3__combobox',
+        CheckoutPage.SELECTORS.CITY_FIELD,
         CheckoutPage.SELECTORS.CITY_FIELD_1,
         CheckoutPage.SELECTORS.CITY_LIST,
         city
@@ -437,7 +438,7 @@ class CheckoutPage {
       // so asserting on its visibility races with vue-select's render cycle.
       const verifyDropdownCity = () => {
         return cy.get('body').then(($body) => {
-          const $chip = $body.find('#vs3__combobox .vs__selected').first();
+          const $chip = $body.find(`${CheckoutPage.SELECTORS.CITY_FIELD} .vs__selected`).first();
           const chipText = normalize($chip.text());
           if (chipText && chipText === expectedNormalized) {
             cy.log(`✅ City dropdown selection '${$chip.text().trim()}' preserved after accept terms.`);
@@ -449,7 +450,7 @@ class CheckoutPage {
           // detached input.vs__search by the time we queried it. _selectFromVueSelect
           // re-opens the combobox, retries up to 3 times, and polls chip-commit.
           return cy.wait(400).then(() => this._selectFromVueSelect(
-            '#vs3__combobox',
+            CheckoutPage.SELECTORS.CITY_FIELD,
             CheckoutPage.SELECTORS.CITY_FIELD_1,
             CheckoutPage.SELECTORS.CITY_LIST,
             expectedCity
@@ -668,10 +669,8 @@ class CheckoutPage {
    * @returns {Cypress.Chainable}
    */
   cancelOrder() {
-    const cancelSelectors = '#show-order-cancel, .action_menu_button, #order-cancel-btn, button.btn-cancel';
-
     cy.get('body').then(($body) => {
-      const $buttons = $body.find(cancelSelectors).filter(':visible');
+      const $buttons = $body.find(CheckoutPage.SELECTORS.CANCEL_BUTTON).filter(':visible');
       if ($buttons.length === 0) {
         cy.log('⚠️ No cancel buttons found in the DOM');
         return;

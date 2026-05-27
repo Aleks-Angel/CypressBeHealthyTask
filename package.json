@@ -36,7 +36,7 @@
     "mochawesome": "^7.1.4"
   },
   "devDependencies": {
-    "cypress": "^15.15.0",
+    "cypress": "^15.16.0",
     "cypress-repeat": "^2.3.10",
     "eslint": "^8.57.1",
     "eslint-plugin-cypress": "^2.15.2",

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-const { webApps, languages, getTargetUrl } = require('./cypress/support/domains');
+const { webApps, languages, getTargetUrl, supportedLocalesFor } = require('./cypress/support/domains');
 const { spawn, execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
@@ -55,7 +55,16 @@ if (language === 'all') {
   const isFullRun = process.argv.includes('--full');
   const sliceArg = process.argv.find(a => a.startsWith('--slice='));
   const sliceCount = sliceArg ? parseInt(sliceArg.split('=')[1], 10) : 2;
-  const testLanguages = isFullRun ? languages : languages.slice(0, sliceCount);
+
+  // Filter out locales this brand doesn't support (e.g. futupets has no FR/ES/PT/UK).
+  // supportedLocalesFor returns the full `languages` array minus the brand's
+  // entries in `excludedLocales`. Logged so the CLI shows what we're skipping.
+  const brandLocales = supportedLocalesFor(selectedApp);
+  const skipped = languages.filter(l => !brandLocales.includes(l));
+  if (skipped.length > 0) {
+    console.log(`ℹ️ Skipping unsupported locales for ${selectedApp}: ${skipped.join(', ')}`);
+  }
+  const testLanguages = isFullRun ? brandLocales : brandLocales.slice(0, sliceCount);
 
   const runNext = (index) => {
     if (index >= testLanguages.length) {

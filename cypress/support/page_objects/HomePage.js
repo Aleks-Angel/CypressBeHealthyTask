@@ -7,19 +7,35 @@
  * documented below.
  */
 class HomePage {
-  get searchInput() { return cy.get('input[name="q"]'); }
-  get acceptCookiesBtn() { return cy.get('#CybotCookiebotDialogBodyLevelButtonLevelOptinAllowAll'); }
-  get hamburgerMenu() { return cy.get('.hamburger_menu_trigger'); }
-  get desktopMenu() { return cy.get('.menu_wrapper > .container-xxl'); }
-  get headerHolder() { return cy.get('.header_holder'); }
-  get hamburgerDesktopMenu() { return cy.get('.all_nav_link'); }
-  get subMenuVitamins() { return cy.get('span[data-submenu="submenu_1"]'); }
-  get subMenuMultivitamins() { return cy.get('span[data-lvl3="lvl3_189"]'); }
-  get cartBasketIcon() { return cy.get('#cart span.basket_icon svg'); }
-  get cartCloseButton() { return cy.get('#cart div.cart_close'); }
-  get cartDeleteItemButton() { return cy.get('#cart a[title="Ukloni"] img'); }
-  get burgerMenuCloseButton() { return cy.get('.offcanvas-header > .btn-close'); }
-  get miltiVitaminsLink() { return cy.get('.active > .lvl3_list > :nth-child(1) > .lvl3_item_link'); }
+  static SELECTORS = {
+    SEARCH_INPUT: 'input[name="q"]',
+    ACCEPT_COOKIES_BTN: '#CybotCookiebotDialogBodyLevelButtonLevelOptinAllowAll',
+    HAMBURGER_MENU: '.hamburger_menu_trigger',
+    DESKTOP_MENU: '.menu_wrapper > .container-xxl',
+    HEADER_HOLDER: '.header_holder',
+    HAMBURGER_DESKTOP_MENU: '.all_nav_link',
+    SUBMENU_VITAMINS: 'span[data-submenu="submenu_1"]',
+    SUBMENU_MULTIVITAMINS: 'span[data-lvl3="lvl3_189"]',
+    CART_BASKET_ICON: '#cart span.basket_icon svg',
+    CART_CLOSE_BUTTON: '#cart div.cart_close',
+    CART_DELETE_ITEM_BUTTON: '#cart a[title="Ukloni"] img',
+    BURGER_MENU_CLOSE_BUTTON: '.offcanvas-header > .btn-close',
+    MULTI_VITAMINS_LINK: '.active > .lvl3_list > :nth-child(1) > .lvl3_item_link'
+  };
+
+  get searchInput() { return cy.get(HomePage.SELECTORS.SEARCH_INPUT); }
+  get acceptCookiesBtn() { return cy.get(HomePage.SELECTORS.ACCEPT_COOKIES_BTN); }
+  get hamburgerMenu() { return cy.get(HomePage.SELECTORS.HAMBURGER_MENU); }
+  get desktopMenu() { return cy.get(HomePage.SELECTORS.DESKTOP_MENU); }
+  get headerHolder() { return cy.get(HomePage.SELECTORS.HEADER_HOLDER); }
+  get hamburgerDesktopMenu() { return cy.get(HomePage.SELECTORS.HAMBURGER_DESKTOP_MENU); }
+  get subMenuVitamins() { return cy.get(HomePage.SELECTORS.SUBMENU_VITAMINS); }
+  get subMenuMultivitamins() { return cy.get(HomePage.SELECTORS.SUBMENU_MULTIVITAMINS); }
+  get cartBasketIcon() { return cy.get(HomePage.SELECTORS.CART_BASKET_ICON); }
+  get cartCloseButton() { return cy.get(HomePage.SELECTORS.CART_CLOSE_BUTTON); }
+  get cartDeleteItemButton() { return cy.get(HomePage.SELECTORS.CART_DELETE_ITEM_BUTTON); }
+  get burgerMenuCloseButton() { return cy.get(HomePage.SELECTORS.BURGER_MENU_CLOSE_BUTTON); }
+  get miltiVitaminsLink() { return cy.get(HomePage.SELECTORS.MULTI_VITAMINS_LINK); }
 
   /**
    * Type a search term into the homepage search input and submit it.
