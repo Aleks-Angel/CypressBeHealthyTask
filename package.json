@@ -23,6 +23,7 @@
     "cypress:run:onenergy:all": "node open-cypress.js onenergy all",
     "cypress:run:purely:all": "node open-cypress.js purely all",
     "cypress:run:sweetbites:all": "node open-cypress.js sweetbites all",
+    "cypress:run:futupets:all": "node open-cypress.js futupets all",
     "cypress:open:custom": "node open-cypress.js",
     "report:generate": "npx mochawesome-merge cypress/results/*.json > cypress/results/report.json && npx marg cypress/results/report.json --reportDir cypress/reports",
     "test:ci": "npm run cypress:run && npm run report:generate"

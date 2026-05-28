@@ -62,24 +62,6 @@ function navigateToCheckout() {
       cy.selectProductByIndex(0);
     }
   });
-
-  // Workaround for a futupets-side script-loading-order race: on the FIRST
-  // visit to a product page, a consumer script references `EmblaCarouselFade`
-  // before the script that defines it has loaded → `ReferenceError` fires →
-  // the entire page's click-handler init is broken for the page's lifetime
-  // (including the add-to-cart Bootstrap modal trigger). Cached loads don't
-  // hit the race because the JS is served in the correct order from disk
-  // cache. We reload here to prime the cache, mimicking what Cypress's runMode
-  // retry already does — but in-attempt, so the first attempt passes too.
-  // Remove this once the futupets dev team fixes the script loading order.
-  cy.url().then((url) => {
-    if (url.includes('futupets')) {
-      cy.log('🔄 futupets: reloading to prime JS cache (script-order race workaround)');
-      cy.reload();
-      cy.bypassCookieBanner();
-    }
-  });
-
   productPage.addToCartButton.click({ force: true });
   productPage.handleCartModal('cart');
   productPage.pageBody.should('not.have.class', 'modal-open');

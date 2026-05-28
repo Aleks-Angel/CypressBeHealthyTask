@@ -1,12 +1,12 @@
 # BeHealthy E2E Cypress Automation
 
-End-to-end Cypress test suite covering 7 BeHealthy storefronts (Futunatura, Healthyworld, Purely, Sweetbites, Erefit, Mycoway, OnEnergy) across 16 locales. Uses the Page Object Model, runs stable in both headed and headless modes, and produces a self-contained mochawesome HTML report with failure screenshots embedded inline.
+End-to-end Cypress test suite covering 8 BeHealthy storefronts (Futunatura, Healthyworld, Purely, Sweetbites, Erefit, Mycoway, OnEnergy, Futupets) across 16 locales. Uses the Page Object Model, runs stable in both headed and headless modes, and produces a self-contained mochawesome HTML report with failure screenshots embedded inline.
 
 ---
 
 ## ✨ What's notable
 
-- **Brand × locale matrix** — one parametric spec (`domain_visit.cy.js`) runs against any of 7 brands × 16 locales = 112 combinations. URL composition lives in `cypress/support/domains.js` (one map for per-brand TLD overrides).
+- **Brand × locale matrix** — one parametric spec (`domain_visit.cy.js`) runs against any of 8 brands × 16 locales = up to 128 combinations (futupets has 4 locales excluded via `excludedLocales`, bringing the real total to 124). URL composition lives in `cypress/support/domains.js` (one map for per-brand TLD overrides, one for unsupported locales per brand).
 - **Vue race resilience** — checkouts use vue-select dropdowns and Bootstrap modals that race during AJAX-driven re-renders. The suite has explicit, per-site-tuned recovery for the BG/RO city/county dropdowns, payment-method radios, and stuck modals. See [ARCHITECTURE.md](ARCHITECTURE.md#load-bearing-code--do-not-casually-refactor) for which code is load-bearing.
 - **Mochawesome flaky-attempt augmentation** — Cypress retries (`runMode: 1`) collapse a failed-then-passed test into a single pass entry in the report. A Node-side `after:spec` augmenter in `cypress.config.js` reads Cypress's per-attempt error info and injects "Flaky test", "Attempt N error", and "Failure screenshot (attempt 1)" into the visible test entry — so flaky tests in CI artifacts still show what failed and what they looked like at the failure moment.
 - **Single-source-of-truth utilities** — localized regexes (success / cancel / status), the order-number selector union, and language-code resolution all live in `cypress/support/utils/*` so adding a new locale's wording or selector is a one-file edit. No copy-paste-drift bugs.
@@ -296,7 +296,8 @@ Storefronts that use Vue (especially Purely / Sweetbites / Mycoway checkouts) ha
 - **`selectedApp` vs `selectedBaseUrl`:**
   - Pass `selectedApp=https://www.futunatura.` (base pattern, trailing dot) plus `language=ro` and `getTargetUrl()` composes the right URL (handling per-locale TLD overrides).
   - Pass `selectedBaseUrl=https://www.purely-nutrition.de` if you have the exact URL and want to skip the resolver.
-- **Supported brand identifiers** (for `open-cypress.js` first arg): `futunatura`, `healthyworld`, `onenergy`, `erefit`, `mycoway`, `purelynutrition`, `sweetbites`.
+- **Supported brand identifiers** (for `open-cypress.js` first arg): `futunatura`, `healthyworld`, `onenergy`, `erefit`, `mycoway`, `purelynutrition`, `sweetbites`, `futupets`.
+- **Per-brand locale exclusions** are defined in `domains.js` `excludedLocales` and applied automatically by `run-random.js` (re-pick) and `open-cypress.js` (filter). Currently: `futupets` has no FR/ES/PT/UK deployments, so those 4 locales are skipped on futupets sweeps.
 - **Supported language codes** (all 16): `si hr it hu de at ro cz sk pl fr bg es gr pt uk`.
 - **`pageLoadTimeout: 120000`** is set in `cypress.config.js` — storefront success pages trail slow third-party trackers (Meta pixel, Google Tag) that keep `window.load` pending past the default 60 s. `domains_orders.js` calls `cy.window().then(win => win.stop())` once success is confirmed so the order-ID capture and cancellation steps don't sit blocked.
 - **`Cypress.expose()`** is used (not the deprecated `Cypress.env()`) — see `cypress.config.js` where `language`, `selectedApp`, and `selectedBaseUrl` are mirrored into `config.expose`. Browser code reads them with `Cypress.expose('language')`.

@@ -80,17 +80,6 @@ class ProductPage {
       // searching inside the modal — find()-ing buttons before the modal has
       // transitioned can race past empty inner DOM. This is the standard
       // Bootstrap modal lifecycle and applies to every brand.
-      //
-      // FUTUPETS-SIDE BUG (as of 2026-05, reported to dev team): on certain
-      // locales (sk, ro, pl, at), a consumer script references
-      // `EmblaCarouselFade` BEFORE the defining script has loaded —
-      // `ReferenceError` fires during initial page load and breaks the
-      // page's click-handler init for that page's lifetime. The modal
-      // never reaches `.show` because Bootstrap's open trigger was never
-      // wired up. Cached loads (Cypress retry) don't hit the race because
-      // disk-cached JS serves in the correct order. Worked around in
-      // navigateToCheckout via cy.reload() to prime the cache. Remove that
-      // workaround once futupets fixes their script loading order.
       cy.get(this.modalId).should('have.class', 'show')
         .find(actionSelector).click({ force: true });
       this._forceCloseStuckModal();
