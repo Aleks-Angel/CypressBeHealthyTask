@@ -5,7 +5,6 @@
  */
 class LoginPage {
   static SELECTORS = {
-    LOGIN_MODAL: '#kbexit_container',
     EMAIL_INPUT: '#login-form input[name="email"]',
     PASSWORD_INPUT: '#login-form input[name="password"]',
     LOGIN_BUTTON: '#login-btn',
@@ -15,12 +14,10 @@ class LoginPage {
     LOGIN_HEADER: '.header_holder',
     LOGIN_FORM: '#login-form',
     USER_PROFILE_PAGE: '.breadcrumb',
-    ACCOUNT_HEADING: 'h1',
     ERROR_MESSAGE: '.alert',
     CUSTOMER_HEADER: 'h1.customer_name'
   };
 
-  get loginModal() { return cy.get(LoginPage.SELECTORS.LOGIN_MODAL); }
   get emailInput() { return cy.get(LoginPage.SELECTORS.EMAIL_INPUT); }
   get passwordInput() { return cy.get(LoginPage.SELECTORS.PASSWORD_INPUT); }
   get loginButton() { return cy.get(LoginPage.SELECTORS.LOGIN_BUTTON); }
@@ -28,7 +25,6 @@ class LoginPage {
   get loginHeader() { return cy.get(LoginPage.SELECTORS.LOGIN_HEADER); }
   get loginForm() { return cy.get(LoginPage.SELECTORS.LOGIN_FORM); }
   get userProfilePage() { return cy.get(LoginPage.SELECTORS.USER_PROFILE_PAGE); }
-  get accountHeading() { return cy.get(LoginPage.SELECTORS.ACCOUNT_HEADING); }
   get errorMessage() { return cy.get(LoginPage.SELECTORS.ERROR_MESSAGE); }
   get customerHeader() { return cy.get(LoginPage.SELECTORS.CUSTOMER_HEADER); }
 

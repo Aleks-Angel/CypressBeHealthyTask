@@ -3,7 +3,7 @@ import { checkoutPage } from '../support/page_objects/CheckoutPage';
 import { homePage } from '../support/page_objects/HomePage';
 
 // Hardcoded to Futunatura HR: this spec uses Croatian search terms and Futunatura's
-// burger-menu / submenu selectors (subMenuVitamins, miltiVitaminsLink, etc.) which
+// burger-menu / submenu selectors (subMenuVitamins, multiVitaminsLink, etc.) which
 // don't exist on other brands. Don't change without also revisiting those selectors.
 const TARGET_URL = 'https://www.futunatura.hr/';
 
@@ -49,7 +49,7 @@ describe('Futunatura Purchase Journey with Data Fixtures', () => {
     homePage.hamburgerDesktopMenu.click({ force: true });
     homePage.subMenuVitamins.click();
     homePage.subMenuMultivitamins.click();
-    homePage.miltiVitaminsLink.click();
+    homePage.multiVitaminsLink.click();
 
     cy.selectFirstProduct();
     productPage.addToCartButton.click();

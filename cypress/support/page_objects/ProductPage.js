@@ -31,9 +31,7 @@ class ProductPage {
 
   get modalId() { return ProductPage.SELECTORS.MODAL; }
   get addToCartModal() { return cy.get(this.modalId); }
-  get modalBackdrop() { return cy.get(ProductPage.SELECTORS.MODAL_BACKDROP); }
   get goToCartButton() { return this.addToCartModal.find(ProductPage.SELECTORS.MODAL_GO_TO_CART); }
-  get continueShoppingButton() { return this.addToCartModal.find(ProductPage.SELECTORS.MODAL_CONTINUE_SHOPPING); }
 
   get goToCheckoutButton() {
     return cy.get(ProductPage.SELECTORS.CHECKOUT_LINK).filter(':visible').first();

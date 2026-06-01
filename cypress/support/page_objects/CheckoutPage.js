@@ -31,11 +31,7 @@ class CheckoutPage {
     SUBMIT_BUTTON: '#button-payment-method',
     AGREEMENT_CHECKBOX: '.quickcheckout-content-new #agree, .cart_terms_wrapper #agree, .terms-box__checkbox #agree, #agree, input[name="agree"]',
     NOTES_DROPDOWN: '.toogle-parent, .comment_address_title, .checkout-box__title-2--expandable',
-    PAYMENT_METHOD_PARENT: '.payment-method-row.col-12, .payment-method-row.select-row, .checkout-box__select-method', 
-    ORDER_NUMBER: '.thank-you-orderno',
     CANCEL_BUTTON: '#show-order-cancel, .action_menu_button, #order-cancel-btn, button.btn-cancel',
-    CANCEL_CONFIRM: '.cancel_wrapper #submit-cancel-order',
-    CANCELED_ORDER: '.cancel_wrapper #user-cancel-order',
     COUNTY_FIELD: '#vs2__combobox',
     COUNTY_INPUT: '#vs2__combobox input.vs__search',
     COUNTY_LIST: '#vs2__listbox',
@@ -67,12 +63,6 @@ class CheckoutPage {
   get orderConfirmationMsg() { return cy.contains(SUCCESS_TEXT_PATTERN); }
   get agreementCheckbox() { return cy.get(CheckoutPage.SELECTORS.AGREEMENT_CHECKBOX); }
   get NotesTextAreaDropdown() { return cy.get(CheckoutPage.SELECTORS.NOTES_DROPDOWN); }
-  get parentPaymentMethod() { return cy.get(CheckoutPage.SELECTORS.PAYMENT_METHOD_PARENT); }
-  get orderNumber() {return cy.get(CheckoutPage.SELECTORS.ORDER_NUMBER)}
-  get cancelOrderButton() { return cy.get(CheckoutPage.SELECTORS.CANCEL_BUTTON); }
-  get cancelYesButton() { return cy.get(CheckoutPage.SELECTORS.CANCEL_CONFIRM); }
-  get canceledOrder() { return cy.get(CheckoutPage.SELECTORS.CANCELED_ORDER); }
-  get countyAddressField() { return cy.get(CheckoutPage.SELECTORS.COUNTY_FIELD); }
   get scaleAddressField() { return cy.get(CheckoutPage.SELECTORS.SCALE_ADDRESS); }
   get blockAddressField() { return this._byBgOrDefault('BLOCK_ADDRESS_BG', 'BLOCK_ADDRESS_DEFAULT'); }
   get floorAddressField() { return this._byBgOrDefault('FLOOR_ADDRESS_BG', 'FLOOR_ADDRESS_DEFAULT'); }
@@ -101,8 +91,6 @@ class CheckoutPage {
   get countyAddressField1() { return cy.get(CheckoutPage.SELECTORS.COUNTY_INPUT); }
   // Target the listbox that appears after typing.
   get countyDropdownList() { return cy.get(CheckoutPage.SELECTORS.COUNTY_LIST); }
-  get cityAddressField1() { return cy.get(CheckoutPage.SELECTORS.CITY_FIELD_1); }
-  get cityDropdownList() { return cy.get(CheckoutPage.SELECTORS.CITY_LIST); }
 
   /**
    * Get the Nth notes textarea (the form renders one per delivery option).
@@ -496,7 +484,7 @@ class CheckoutPage {
   }
 
   /** Click the "delivery notes" accordion to expose the notes textareas. */
-  NotesArrea() {
+  notesArea() {
     this.NotesTextAreaDropdown.click();
   }
 

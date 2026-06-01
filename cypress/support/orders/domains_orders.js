@@ -88,7 +88,7 @@ export function runDomainsOrders(data) {
   navigateToCheckout();
 
   return checkoutPage.fillCustomerInfo(data.validUser).then(() => {
-    checkoutPage.NotesArrea();
+    checkoutPage.notesArea();
     checkoutPage.submitOrderButton.should('be.enabled');
 
     checkoutPage.getNotesTextarea(0).type('Test');

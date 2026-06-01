@@ -87,7 +87,12 @@ Cypress.Commands.add('searchProduct', (query) => {
     .should('not.be.disabled')
     .type(`${query}{enter}`);
 
-  cy.get(PRODUCT_CARD_SELECTORS)
+  // Assert results rendered using FIRST_PRODUCT_SELECTORS — it includes the
+  // bare `.item_box` tile that the search-results grid uses (PRODUCT_CARD_SELECTORS
+  // only matches the homepage carousel structure `.embla_p a:has(.item_box)`).
+  // This is also the selector the immediately-following selectFirstProduct uses,
+  // so "results appeared" and "click first result" stay consistent.
+  cy.get(FIRST_PRODUCT_SELECTORS)
     .filter(':visible')
     .should('have.length.greaterThan', 0);
 
