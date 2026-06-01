@@ -19,7 +19,6 @@ class HomePage {
     CART_BASKET_ICON: '#cart span.basket_icon svg',
     CART_CLOSE_BUTTON: '#cart div.cart_close',
     CART_DELETE_ITEM_BUTTON: '#cart a[title="Ukloni"] img',
-    BURGER_MENU_CLOSE_BUTTON: '.offcanvas-header > .btn-close',
     MULTI_VITAMINS_LINK: '.active > .lvl3_list > :nth-child(1) > .lvl3_item_link'
   };
 
@@ -34,8 +33,7 @@ class HomePage {
   get cartBasketIcon() { return cy.get(HomePage.SELECTORS.CART_BASKET_ICON); }
   get cartCloseButton() { return cy.get(HomePage.SELECTORS.CART_CLOSE_BUTTON); }
   get cartDeleteItemButton() { return cy.get(HomePage.SELECTORS.CART_DELETE_ITEM_BUTTON); }
-  get burgerMenuCloseButton() { return cy.get(HomePage.SELECTORS.BURGER_MENU_CLOSE_BUTTON); }
-  get miltiVitaminsLink() { return cy.get(HomePage.SELECTORS.MULTI_VITAMINS_LINK); }
+  get multiVitaminsLink() { return cy.get(HomePage.SELECTORS.MULTI_VITAMINS_LINK); }
 
   /**
    * Type a search term into the homepage search input and submit it.

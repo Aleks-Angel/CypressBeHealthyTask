@@ -3,7 +3,6 @@
     "ecmaVersion": 2022,
     "sourceType": "module"
   },
-  "cypress/unsafe-to-chain-command": "off",
   "env": {
     "browser": true,
     "es6": true,
@@ -16,5 +15,9 @@
   ],
   "plugins": [
     "cypress"
-  ]
+  ],
+  "rules": {
+    "cypress/unsafe-to-chain-command": "off",
+    "cypress/no-unnecessary-waiting": "warn"
+  }
 }
