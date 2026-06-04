@@ -601,19 +601,32 @@ class CheckoutPage {
    * @private
    */
   _selectPaymentMethodWithRetry(methodId, attemptsLeft) {
-    return this._clickPaymentTarget(methodId).then(() => cy.wait(1500)).then(() => {
-      return cy.get('body').then(($body) => {
-        if (this._isPaymentMethodSelected($body, methodId)) {
-          cy.log(`✅ Payment "${methodId}" confirmed selected`);
-          return null;
-        }
-        if (attemptsLeft <= 0) {
-          cy.log(`⚠️ Payment "${methodId}" still not selected after retries — proceeding`);
-          return null;
-        }
-        cy.log(`⚠️ Vue race: "${methodId}" not selected — re-clicking (${attemptsLeft} left)`);
-        return this._selectPaymentMethodWithRetry(methodId, attemptsLeft - 1);
-      });
+    return cy.url().then((u) => {
+      const isFutupets = u.includes('futupets');
+      // Futupets: wait for the actual payment-save AJAX (checkout_vue/save) to
+      // persist before checking selection — closes the race where the DOM shows
+      // "selected" before the server saved, which let the submit fire first and
+      // created an 'abandoned' order. Fresh alias per click so we await THIS
+      // click's save, not an earlier one. Other brands keep the blind 1500ms.
+      if (isFutupets) {
+        cy.intercept({ method: 'POST', url: /checkout_vue\/save/ }).as('paySave');
+      }
+      return this._clickPaymentTarget(methodId)
+        .then(() => (isFutupets ? cy.wait('@paySave', { timeout: 10000 }) : cy.wait(1500)))
+        .then(() => {
+          return cy.get('body').then(($body) => {
+            if (this._isPaymentMethodSelected($body, methodId)) {
+              cy.log(`✅ Payment "${methodId}" confirmed selected`);
+              return null;
+            }
+            if (attemptsLeft <= 0) {
+              cy.log(`⚠️ Payment "${methodId}" still not selected after retries — proceeding`);
+              return null;
+            }
+            cy.log(`⚠️ Vue race: "${methodId}" not selected — re-clicking (${attemptsLeft} left)`);
+            return this._selectPaymentMethodWithRetry(methodId, attemptsLeft - 1);
+          });
+        });
     });
   }
 
