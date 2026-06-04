@@ -288,6 +288,8 @@ Storefronts that use Vue (especially Purely / Sweetbites / Mycoway checkouts) ha
 
 `CheckoutPage.js` handles these explicitly via `_selectFromVueSelect` (3× retry with chip-commit polling), `selectPaymentMethodByLanguage` / `verifyPaymentMethodStable` (wrapper-click + native `.check()` to fire the change event), and the post-accept `verifyCityAfterAccept` (reuses `_selectFromVueSelect` for recovery). **Do not refactor these without a full domain × language test pass** — the `cy.wait(<literal>)` durations and retry counts are tuned per site. See [ARCHITECTURE.md](ARCHITECTURE.md#load-bearing-code--do-not-casually-refactor) for the full list of load-bearing pieces.
 
+A 2026-06 reduction pass replaced several blind waits with deterministic signals (field-readiness assertions, the futupets `/thank-you` redirect, and a `cy.wait('@paySave')` intercept on the real payment-save AJAX that closes futupets's abandoned-order race) — verified green over 100+ orders. Brand-specific reductions are futupets-scoped; the other brands keep their calibrated waits. See ARCHITECTURE.md for the breakdown.
+
 ---
 
 ## 📝 Notes & gotchas

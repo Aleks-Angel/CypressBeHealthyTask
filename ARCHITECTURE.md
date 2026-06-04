@@ -107,15 +107,29 @@ leaving `display: block` inline on the modal. We strip the open-state classes,
 inline styles, and `.modal-backdrop` ourselves.
 
 ### `cy.wait(<literal>)` instances in `domains_orders.js` and `CheckoutPage.js`
-Each one is tuned for a specific brand's slowest observed behavior. In
-particular:
-- `cy.wait(8000)` after submit click — purely HR was redirecting at ~6s,
-  shorter waits triggered false retries that ran against the success page.
+~17 remain (down from 20 after the 2026-06 reduction pass). Each remaining one is
+tuned for a specific brand's slowest observed behavior. In particular:
+- `cy.wait(8000)` after submit click — **non-futupets only**; purely HR was
+  redirecting at ~6s, shorter waits triggered false retries against the success
+  page. (Futupets bypasses this — see below.)
 - `cy.wait(900)` then `cy.get('#vs3__combobox', { timeout: 15000 })` — BG
   mycoway's cities API re-renders the city dropdown mid-wait.
 
-If you need to change a wait, look at git blame first — most have an associated
-commit explaining the failure they fix.
+**Wait-reduction pass (2026-06, verified 100+ orders green):**
+- Bucket A — 3 blind field-settle waits → `should('have.value'/'be.visible')`
+  readiness assertions (all brands, deterministic).
+- Bucket B — futupets submit `cy.wait(8000)` → wait for the real `/thank-you`
+  redirect (`SUCCESS_URL_PATTERN`); 4 pre/post-order buffers halved.
+- Payment — futupets `cy.wait(1500)` → `cy.wait('@paySave')` on the actual
+  `checkout_vue/save` AJAX response, registered fresh per click in
+  `_selectPaymentMethodWithRetry`. Closes the submit-before-save abandoned-order
+  race. The `beforeEach` `{log:false}` intercept does NOT shadow the alias
+  (verified) — but re-check that if adding more aliased intercepts.
+- All brand-specific reductions are futupets-scoped (`url.includes('futupets')`);
+  the other 7 brands keep their calibrated blind waits.
+
+If you need to change a remaining wait, look at git blame first — most have an
+associated commit explaining the failure they fix.
 
 ---
 
