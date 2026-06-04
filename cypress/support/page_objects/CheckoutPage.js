@@ -679,7 +679,8 @@ class CheckoutPage {
         .should('be.visible')
         .click({ force: true });
 
-      cy.wait(3000);
+      cy.wait(1500); // post-cancel settle buffer (halved); the status check in
+                     // orderCanceledSuccessfully is the real confirmation.
       cy.log(`✅ Cancel order submitted (using button index ${indexToClick})`);
     });
   }
@@ -698,7 +699,8 @@ class CheckoutPage {
    */
   orderCanceledSuccessfully() {
     cy.get('body', { timeout: 15000 }).should('exist');
-    cy.wait(2000);
+    cy.wait(1000); // post-order settle buffer (halved); the pattern checks below
+                   // are the real confirmation, with their own retries/timeouts.
 
     cy.get('body').then(($body) => {
       const text = $body.text();
