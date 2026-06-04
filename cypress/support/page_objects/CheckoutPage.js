@@ -157,8 +157,10 @@ class CheckoutPage {
     forceType(this.addressInput, user.address1);
     forceType(this.addressInput2, user.address2);
 
-    // Let Vue settle after address fields before downstream rendering.
-    cy.wait(500);
+    // Assert the last field actually holds its value (Vue committed the inputs)
+    // instead of a blind settle-wait — proceeds the instant it's in, and if a
+    // Vue re-render briefly clears it, the assertion retries until restored.
+    this.addressInput2.should('have.value', user.address2);
   }
 
   /**
@@ -174,8 +176,11 @@ class CheckoutPage {
 
     this.postalCodeInput.clear({ force: true }).type(postalCode, { force: true });
     cy.log(`STEP: Entered Postal Code: ${postalCode}`);
-    cy.wait(500); // let Vue settle after postal code entry
 
+    // Replace a blind settle-wait with the real readiness conditions: the postal
+    // field committed a value (non-empty avoids locale reformatting brittleness),
+    // then the city field is ready to fill.
+    this.postalCodeInput.should('not.have.value', '');
     this.cityInput.should('be.visible').and('not.be.disabled');
 
     if (langCode === 'sk') return this.fillSlovakianAddress(county, city);
@@ -215,8 +220,10 @@ class CheckoutPage {
 
   /**
    * Fill the address fields for the Slovakian checkout layout (county dropdown
-   * with exact-match li click + city text input). Waits 600ms after county
-   * selection to let Vue settle before typing city.
+   * with exact-match li click + city text input). Waits for the city field to
+   * be ready (visible + enabled) after county selection rather than a blind
+   * settle — SK's city is a plain text input with no server dependency, so
+   * field readiness is a sufficient signal.
    *
    * @param {string} county - County name (exact match expected, e.g. "Košický")
    * @param {string} city - City name
@@ -225,7 +232,7 @@ class CheckoutPage {
   fillSlovakianAddress(county, city) {
     return this.countyAddressField1.clear({ force: true }).type(county, { force: true }).then(() => {
       this.countyDropdownList.find('li').contains(county).click({ force: true });
-      cy.wait(600); // let Vue settle after county selection before typing city
+      this.cityInput.should('be.visible').and('not.be.disabled');
       return cy.safeType(() => this.cityInput, city);
     });
   }
