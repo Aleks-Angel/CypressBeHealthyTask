@@ -96,28 +96,47 @@ export function runDomainsOrders(data) {
 
     return checkoutPage.selectPaymentMethodByLanguage(data.paymentMethods)
       .then(() => checkoutPage.acceptTermsAndConfirm())
-      .then(() => cy.wait(2000))
+      // Pre-order settle buffers, halved after the dev's checkout race fix. Each
+      // is followed by assertion-based verification (verifyCityAfterAccept polls
+      // the chip; waitForSubmitButtonStable asserts the button), which is the
+      // real guard — these are just a small head-start for the Vue re-render.
+      .then(() => cy.wait(1000))
       .then(() => checkoutPage.verifyCityAfterAccept(data.validUser, data.paymentMethods))
       .then(() => checkoutPage.refillCountyIfCleared(data.validUser))
-      .then(() => cy.wait(3000))
+      .then(() => cy.wait(1500))
       .then(() => checkoutPage.waitForSubmitButtonStable())
       .then(() => checkoutPage.verifyCityAfterAccept(data.validUser, null))
       .then(() => checkoutPage.selectPaymentMethodByLanguage(data.paymentMethods))
       .then(() => checkoutPage.verifyPaymentMethodStable(data.paymentMethods))
       .then(() => {
-        checkoutPage.submitOrderButton.click({ force: true });
-        // 3s wasn't long enough on slower brands (purely HR redirected at ~6s
-        // post-click). The old timing falsely triggered the retry path while
-        // the original submit was still in flight, then the retry's payment-
-        // method recheck ran against the success page and timed out on the
-        // bank_transfer radio.
-        cy.wait(8000);
-        return cy.url().then((url) => {
-          return isStillOnCheckoutPage(url).then((stuck) => {
-            if (!stuck) return null;
-            cy.log('⚠️ Order button click was ignored, retrying...');
-            return checkoutPage.verifyPaymentMethodStable(data.paymentMethods).then(() => {
-              checkoutPage.submitOrderButton.click({ force: true });
+        return cy.url().then((preUrl) => {
+          const isFutupets = preUrl.includes('futupets');
+          checkoutPage.submitOrderButton.click({ force: true });
+
+          if (isFutupets) {
+            // Bucket B: futupets places the order via a checkout_vue/save POST
+            // with confirm=true, then redirects to /thank-you ONLY on genuine
+            // completion (the POST returns 200 even for an abandoned order, so
+            // the redirect is the correct success signal). Wait for that redirect
+            // instead of a blind 8s — deterministic, and if the order abandons
+            // (save race) the redirect never comes and this fails clearly at the
+            // submit step rather than masking it as a later captureOrderId timeout.
+            return cy.url({ timeout: 20000 }).should('match', SUCCESS_URL_PATTERN);
+          }
+
+          // Other brands: blind wait + retry-if-the-click-was-ignored (unchanged).
+          // 3s wasn't long enough on slower brands (purely HR redirected at ~6s
+          // post-click); the old timing falsely triggered the retry path while the
+          // original submit was still in flight, then the retry's payment-method
+          // recheck ran against the success page and timed out on bank_transfer.
+          cy.wait(8000);
+          return cy.url().then((url) => {
+            return isStillOnCheckoutPage(url).then((stuck) => {
+              if (!stuck) return null;
+              cy.log('⚠️ Order button click was ignored, retrying...');
+              return checkoutPage.verifyPaymentMethodStable(data.paymentMethods).then(() => {
+                checkoutPage.submitOrderButton.click({ force: true });
+              });
             });
           });
         });
