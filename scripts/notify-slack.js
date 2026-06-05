@@ -26,13 +26,23 @@ function formatDuration(ms) {
   return m > 0 ? `${m}m ${s}s` : `${s}s`;
 }
 
-/** Where the run happened, plus the commit SHA when running in GitHub Actions. */
-function runSource() {
-  if (process.env.GITHUB_ACTIONS === 'true') {
-    const sha = (process.env.GITHUB_SHA || '').slice(0, 7);
-    return sha ? `GitHub Actions (\`${sha}\`)` : 'GitHub Actions';
-  }
-  return 'local';
+/**
+ * Plain-language label for what kicked off the run — friendly for non-technical
+ * viewers (managers/leads). On CI it keeps the `GitHub Actions · <sha>` detail in
+ * parentheses for devs; local runs are just "Local run".
+ */
+function triggeredBy() {
+  if (process.env.GITHUB_ACTIONS !== 'true') return 'Local run';
+  const labels = {
+    schedule: 'Hourly automated check',
+    workflow_dispatch: 'Manual run',
+    push: 'Code push',
+    pull_request: 'Pull request check',
+  };
+  const label = labels[process.env.GITHUB_EVENT_NAME] || 'GitHub Actions';
+  const sha = (process.env.GITHUB_SHA || '').slice(0, 7);
+  const detail = sha ? `GitHub Actions · ${sha}` : 'GitHub Actions';
+  return `${label} (${detail})`;
 }
 
 /**
@@ -80,31 +90,41 @@ function buildPayload({ brand, lang, url, exitCode, stats }) {
     ? `✅ ${stats.passes} passed   ❌ ${stats.failures} failed   ⏭ ${stats.pending} pending   ⏱ ${stats.duration}`
     : `⚠️ No report found (run exited ${exitCode}) — likely crashed before reporting`;
 
-  // On CI, append a clickable link to the run page (artifact + report download).
-  // Local runs have no run URL → context stays just the spec name.
+  // One-line, plain-language verdict for non-technical viewers (managers/leads).
+  const summarySentence = failed
+    ? 'A test order did not complete — checkout may be broken on this store. Please review.'
+    : 'A test order completed successfully — checkout is working on this store.';
+
+  const blocks = [
+    {
+      type: 'header',
+      text: { type: 'plain_text', text: `${emoji} ${headline}`, emoji: true },
+    },
+    {
+      type: 'section',
+      text: { type: 'mrkdwn', text: summarySentence },
+    },
+    {
+      type: 'section',
+      fields: [
+        { type: 'mrkdwn', text: `*Store:*\n${brand} × ${lang}` },
+        { type: 'mrkdwn', text: `*Website:*\n${url}` },
+        { type: 'mrkdwn', text: `*Result:*\n${resultLine}` },
+        { type: 'mrkdwn', text: `*Triggered by:*\n${triggeredBy()}` },
+      ],
+    },
+  ];
+
+  // On CI, add a clickable link to the run page (artifact + report download).
+  // Local runs have no run URL → no link block.
   const runUrl = githubRunUrl();
-  const contextText = runUrl
-    ? `Spec: \`domain_visit.cy.js\`   ·   <${runUrl}|View run & report ↗>`
-    : 'Spec: `domain_visit.cy.js`';
+  if (runUrl) {
+    blocks.push({ type: 'context', elements: [{ type: 'mrkdwn', text: `<${runUrl}|View report ↗>` }] });
+  }
 
   return {
     text: `${emoji} ${headline} — ${brand} × ${lang} — ${resultLine}`, // notification/fallback text
-    blocks: [
-      {
-        type: 'header',
-        text: { type: 'plain_text', text: `${emoji} ${headline}`, emoji: true },
-      },
-      {
-        type: 'section',
-        fields: [
-          { type: 'mrkdwn', text: `*Brand × Lang:*\n${brand} × ${lang}` },
-          { type: 'mrkdwn', text: `*Target URL:*\n${url}` },
-          { type: 'mrkdwn', text: `*Result:*\n${resultLine}` },
-          { type: 'mrkdwn', text: `*Run by:*\n${runSource()}` },
-        ],
-      },
-      { type: 'context', elements: [{ type: 'mrkdwn', text: contextText }] },
-    ],
+    blocks,
   };
 }
 
@@ -116,7 +136,13 @@ function buildPayload({ brand, lang, url, exitCode, stats }) {
  */
 async function notifySlack({ brand, lang, url, exitCode }) {
   const webhook = process.env.SLACK_WEBHOOK_URL;
-  if (!webhook) return; // opt-in: stay silent when not configured
+  if (!webhook) {
+    // Opt-in: skip when not configured, but say so — otherwise a missing env var
+    // looks like a silent failure (especially locally, where it's easy to forget
+    // to set it in a fresh shell session).
+    console.log('ℹ️  SLACK_WEBHOOK_URL not set — skipping Slack notification.');
+    return;
+  }
 
   const stats = readStats();
   const payload = buildPayload({ brand, lang, url, exitCode, stats });
