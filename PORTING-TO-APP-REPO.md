@@ -256,10 +256,11 @@ When the time comes, work this top-to-bottom:
   upgrades vue-select or migrates off Vue, the BG/RO city dropdown handling
   in `_selectFromVueSelect` will need re-validation.
 
-- **Schedule trigger costs.** If you re-enable hourly cron in the sandboxed
-  workflow, it'll run against the merged branch — eats CI minutes proportional
-  to how often it fires. The current default is paused for that reason; weigh
-  monitoring value against cost when you re-enable.
+- **Schedule trigger costs.** This automation repo runs an hourly cron
+  (`0 * * * *`) against prod. If you port into the app repo's sandboxed `qa/`
+  workflow, the same cron would eat CI minutes proportional to how often it
+  fires — the porting template below keeps `schedule:` commented out for that
+  reason; weigh monitoring value against cost before enabling it there.
 
 ---
 
@@ -275,6 +276,6 @@ Keep the automation in its own repo if any of these are true:
 - The app repo's CI minutes are constrained
 
 The current arrangement (separate repo, deployed against prod, hourly cron
-paused, PR validation on the automation repo itself) **is the right design for
-a synthetic-monitoring suite**. Only port it inside the app repo when there's
+monitoring + PR validation on the automation repo itself) **is the right design
+for a synthetic-monitoring suite**. Only port it inside the app repo when there's
 a clear organizational reason to do so.
