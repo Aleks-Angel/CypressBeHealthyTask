@@ -153,8 +153,9 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
-  # schedule:
-  #   - cron: '0 * * * *'   # hourly — paused; uncomment to re-enable
+  # Hourly smoke against a random brand × language.
+  schedule:
+    - cron: '0 * * * *'
   workflow_dispatch:
 
 jobs:
