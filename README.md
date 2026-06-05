@@ -220,10 +220,16 @@ npm run cypress:run:random
 
 CI: add the URL as a repo secret named `SLACK_WEBHOOK_URL` (Settings → Secrets
 and variables → Actions). The workflow already passes it through. CI messages
-include a clickable **View run & report** link to the GitHub Actions run page,
-where the `cypress-results` artifact (`final-report.html` with embedded
-screenshots + video) downloads. Phase 1 is text-only — incoming webhooks can't
-upload files, so the screenshot isn't rendered inline in Slack (that's Phase 2).
+include a clickable **View report** link to the GitHub Actions run page, where
+the `cypress-results` artifact (`final-report.html` with embedded screenshots +
+video) downloads. Phase 1 is text-only — incoming webhooks can't upload files,
+so the screenshot isn't rendered inline in Slack (that's Phase 2).
+
+The message is written for a non-technical audience (managers/leads can be
+invited to the channel): a plain-language pass/fail sentence, `Store` / `Website`
+/ `Result` / `Triggered by` fields, and a friendly trigger label (`Hourly
+automated check`, `Manual run`, `Code push`, `Pull request check`, or `Local
+run`) — the commit SHA stays in parentheses on CI runs for traceability.
 
 ---
 
