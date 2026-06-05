@@ -140,10 +140,11 @@ The workflow picks a **random brand + random language** per run via `run-random.
 **Active triggers:**
 - `push` to `main` — validates the test suite itself after a merge
 - `pull_request` to `main` — informational status check on PRs (non-blocking by default — random pick can flake for reasons unrelated to the PR)
+- `schedule` (hourly cron `0 * * * *`) — continuous matrix coverage, one random brand × locale per hour
 - `workflow_dispatch` — manual run from the Actions tab
 
-**Paused trigger:**
-- `schedule` (hourly cron `0 * * * *`) — commented out for now to reduce noise; uncomment the `schedule:` block to re-enable continuous matrix coverage.
+Every run (including the hourly cron) posts a summary to Slack when the
+`SLACK_WEBHOOK_URL` secret is set — see [Slack notifications](#slack-notifications-optional-opt-in) below.
 
 ```yaml
 name: Domain Visit (Random)

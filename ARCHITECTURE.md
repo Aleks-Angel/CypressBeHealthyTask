@@ -54,9 +54,14 @@ Top-level files:
   renaming, `after:spec` mochawesome augmenter (injects retry attempt errors +
   screenshots into the report), error-bridge `captureAttemptError` task.
 - [run-random.js](run-random.js) — CLI: picks a random brand+locale, runs
-  `domain_visit.cy.js` once, regenerates the HTML report. Used by CI.
+  `domain_visit.cy.js` once, regenerates the HTML report, then posts a Slack
+  summary (via `scripts/notify-slack.js`, opt-in). Used by CI.
 - [open-cypress.js](open-cypress.js) — CLI: runs `domain_visit.cy.js` for one
   brand × *all* locales sequentially. Local "full sweep" entrypoint.
+- [scripts/notify-slack.js](scripts/notify-slack.js) — posts a one-line run
+  summary to Slack after a `run-random.js` run. No-op unless `SLACK_WEBHOOK_URL`
+  is set; never throws (a Slack outage can't fail the run). Manager-friendly
+  message format; on CI it links to the Actions run page.
 
 ---
 
