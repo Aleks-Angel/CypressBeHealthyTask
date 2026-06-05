@@ -8,10 +8,9 @@ on:
     # protection, since the random brand×locale pick can flake for reasons
     # unrelated to the PR's changes.
     branches: [main]
-  # Hourly smoke against a random brand × language — paused for now.
-  # Uncomment the schedule block below to re-enable.
-  # schedule:
-  #   - cron: '0 * * * *'
+  # Hourly smoke against a random brand × language.
+  schedule:
+    - cron: '0 * * * *'
   workflow_dispatch:
 
 jobs:
@@ -29,6 +28,10 @@ jobs:
 
       - name: Run domain_visit.cy.js against a random brand × language
         run: npm run cypress:run:random
+        env:
+          # Optional: set the SLACK_WEBHOOK_URL repo secret to post run summaries
+          # to Slack. Unset → run-random.js skips notification silently.
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
 
       - name: Upload Cypress results
         if: always()

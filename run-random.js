@@ -7,7 +7,8 @@
 // Pass `--headed` to open the Cypress UI instead of headless Chrome.
 // Pass `--browser <name>` to override the default (chrome).
 
-const { webApps, getTargetUrl, supportedLocalesFor } = require('./cypress/support/domains');
+const { webApps, getTargetUrl, supportedLocalesFor, brandLabel } = require('./cypress/support/domains');
+const { notifySlack } = require('./scripts/notify-slack');
 const { spawn, execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
@@ -26,7 +27,7 @@ const headed = args.includes('--headed');
 const browserIdx = args.indexOf('--browser');
 const browser = browserIdx !== -1 ? args[browserIdx + 1] : 'chrome';
 
-console.log(`🎲 Random pick: ${app} + ${lang}`);
+console.log(`🎲 Random pick: ${brandLabel(app)} + ${lang}`);
 console.log(`🎯 Target URL: ${url}`);
 console.log(`🖥  Mode:       ${headed ? 'headed' : 'headless'} (${browser})`);
 
@@ -67,7 +68,13 @@ const command = [
 ].filter(Boolean).join(' ');
 
 const child = spawn(command, [], { stdio: 'inherit', shell: true });
-child.on('close', (code) => {
+child.on('close', async (code) => {
   generateFinalReport();
-  process.exit(code ?? 0);
+  // Post a summary to Slack if SLACK_WEBHOOK_URL is set (no-op otherwise, never throws).
+  // Runs after the report so notify-slack can read the merged JSON.
+  await notifySlack({ brand: brandLabel(app), lang, url, exitCode: code ?? 0 });
+  // Set the code and let the event loop drain instead of process.exit(): forcing
+  // exit while fetch's socket handle is still closing trips a libuv assertion on
+  // Windows (UV_HANDLE_CLOSING, src\win\async.c). Natural drain avoids the race.
+  process.exitCode = code ?? 0;
 });
