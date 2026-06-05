@@ -55,6 +55,21 @@ const languages = ['si', 'hr', 'it', 'hu', 'de', 'at', 'ro', 'cz', 'sk', 'pl', '
 // Order matters when one brand string is a substring of another — none currently overlap.
 const KNOWN_BRANDS = ['futunatura', 'healthy', 'erefit', 'mycoway', 'purely', 'energy', 'sweet', 'futupets'];
 
+// Human-readable brand names for reports/notifications, keyed by the URL slug
+// (the segment between `www.`/protocol and the trailing dot in each webApps entry).
+// Single source of truth for the 8 brands — used by the Slack notifier so the
+// summary reads "OnEnergy × de" instead of the raw base URL.
+const BRAND_DISPLAY_NAMES = {
+  futunatura: 'Futunatura',
+  healthyworld: 'Healthyworld',
+  onenergy: 'OnEnergy',
+  erefit: 'Erefit',
+  mycoway: 'Mycoway',
+  purelynutrition: 'Purely',
+  sweetbites: 'Sweetbites',
+  futupets: 'Futupets'
+};
+
 // Brand-specific locale exclusions. Each entry lists locales NOT supported (or
 // not deployed) for that brand — runners filter these out before iterating, and
 // the random picker re-rolls when it lands on an excluded combo. Brand keys are
@@ -91,6 +106,21 @@ export function supportedLocalesFor(appBase) {
   const brand = Object.keys(excludedLocales).find(key => appBase.toLowerCase().includes(key));
   const skip = brand ? excludedLocales[brand] : [];
   return languages.filter(lang => !skip.includes(lang));
+}
+
+/**
+ * Map a brand base URL (or a full target URL) to a human-readable brand name.
+ * Matches the URL against the `BRAND_DISPLAY_NAMES` slugs (substring); falls back
+ * to the bare host segment (capitalized) for anything unrecognized.
+ *
+ * @param {string} appOrUrl - e.g. 'https://www.onenergy.' or 'https://www.onenergynutrition.de'
+ * @returns {string} Display name, e.g. 'OnEnergy'
+ */
+export function brandLabel(appOrUrl) {
+  const slug = Object.keys(BRAND_DISPLAY_NAMES).find(s => appOrUrl.includes(s));
+  if (slug) return BRAND_DISPLAY_NAMES[slug];
+  const bare = appOrUrl.replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\..*$/, '');
+  return bare ? bare.charAt(0).toUpperCase() + bare.slice(1) : appOrUrl;
 }
 
 export {

@@ -202,6 +202,29 @@ npm run cypress:run:random:headed     # opens the Cypress UI with the random pic
 node run-random.js --headed --browser firefox
 ```
 
+### Slack notifications (optional, opt-in)
+
+After the report is generated, `run-random.js` posts a one-line run summary
+(🟢/🔴, brand × lang, pass/fail counts, duration) to Slack — **only if the
+`SLACK_WEBHOOK_URL` environment variable is set**. Unset, it stays silent and
+never errors. Logic lives in [scripts/notify-slack.js](scripts/notify-slack.js).
+
+One-time setup (Slack side): create a Slack app → enable *Incoming Webhooks* →
+add a webhook to the target channel → copy the `https://hooks.slack.com/...` URL.
+
+Local:
+```powershell
+$env:SLACK_WEBHOOK_URL = "https://hooks.slack.com/services/..."
+npm run cypress:run:random
+```
+
+CI: add the URL as a repo secret named `SLACK_WEBHOOK_URL` (Settings → Secrets
+and variables → Actions). The workflow already passes it through. CI messages
+include a clickable **View run & report** link to the GitHub Actions run page,
+where the `cypress-results` artifact (`final-report.html` with embedded
+screenshots + video) downloads. Phase 1 is text-only — incoming webhooks can't
+upload files, so the screenshot isn't rendered inline in Slack (that's Phase 2).
+
 ---
 
 ## 📊 Reports & Artifacts
