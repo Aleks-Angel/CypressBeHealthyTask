@@ -34,17 +34,33 @@ function dismissCookieBannerIfPresent($body) {
  * @param {Partial<Cypress.VisitOptions>} [options] - Additional cy.visit options
  */
 Cypress.Commands.add('safeVisit', (url, options = {}) => {
-  // cy.request goes through Node — WAF/Cloudflare will block it regardless of UA.
-  // Just visit directly; the browser-level UA override handles the actual request.
-  cy.visit(url, {
-    timeout: 30000,
-    failOnStatusCode: false,
-    ...options,
-  }).then(() => {
-    cy.url().then((currentUrl) => {
-      // If we got redirected to a block/error page, treat as unreachable
-      const blocked = ['403', 'error', 'blocked'].some(token => currentUrl.includes(token));
-      cy.wrap(!blocked).as('siteReachable');
+  // Pre-flight: detect a WAF redirect-loop from the CI datacenter IP BEFORE
+  // cy.visit. cy.visit follows HTTP redirects and throws at onWindowLoad once it
+  // exceeds redirectionLimit (>20 hops) — which fires before the `.then()` below
+  // can set @siteReachable, so the spec's graceful-skip never gets a chance. The
+  // Node-side `checkRedirectLoop` task follows redirects itself and flags only a
+  // genuine loop (cycle / >maxHops); on a hit we mark the site unreachable and
+  // skip cy.visit entirely. (A 403/timeout from Node is NOT a loop — the browser
+  // may still pass — so we don't falsely skip good stores.)
+  cy.task('checkRedirectLoop', { url }, { timeout: 30000 }).then((probe) => {
+    if (probe.looped) {
+      const trail = probe.chain.map(h => `${h.status}→${h.location || 'end'}`).join('  ');
+      cy.log(`⚠️ Pre-flight redirect-loop (${probe.reason}) — WAF blocking CI IP, marking unreachable`);
+      cy.log(`   chain: ${trail}`);
+      cy.wrap(false).as('siteReachable');
+      return;
+    }
+
+    cy.visit(url, {
+      timeout: 30000,
+      failOnStatusCode: false,
+      ...options,
+    }).then(() => {
+      cy.url().then((currentUrl) => {
+        // If we got redirected to a block/error page, treat as unreachable
+        const blocked = ['403', 'error', 'blocked'].some(token => currentUrl.includes(token));
+        cy.wrap(!blocked).as('siteReachable');
+      });
     });
   });
 });
