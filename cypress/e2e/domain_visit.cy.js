@@ -6,7 +6,18 @@ const appUrl = Cypress.expose('selectedApp');
 const domainName = appUrl.replace(/^https?:\/\//, '').replace(/^www\./, '').split('.')[0];
 const capitalizedDomain = domainName.charAt(0).toUpperCase() + domainName.slice(1);
 
-const CLOUDFLARE_TEXT_MARKERS = ['Performing security verification', 'Verify you are human'];
+// Two Cloudflare presentations, both meaning the CI datacenter IP is blocked
+// (not a real store error): the JS *challenge* interstitial ("Performing security
+// verification" / "Verify you are human"), AND the hard *block* page ("Sorry, you
+// have been blocked" / "Cloudflare Ray ID", served 403 at the same URL — no
+// redirect-loop, so the safeVisit pre-flight probe can't see it). Either → skip.
+const CLOUDFLARE_TEXT_MARKERS = [
+  'Performing security verification',
+  'Verify you are human',
+  'Sorry, you have been blocked',
+  'You are unable to access',
+  'Cloudflare Ray ID',
+];
 const CLOUDFLARE_IFRAME = 'iframe[src*="challenges.cloudflare.com"]';
 
 function isCloudflareChallenged($body) {
@@ -37,7 +48,7 @@ describe(`[${lang}] ${capitalizedDomain} Order Test`, () => {
 
         cy.get('body').then(($body) => {
           if (isCloudflareChallenged($body)) {
-            cy.log('⏭️ Cloudflare challenge detected — skipping domain (inconclusive)');
+            cy.log('⏭️ Cloudflare challenge/block detected — skipping domain (inconclusive)');
             this.skip();
           }
 
