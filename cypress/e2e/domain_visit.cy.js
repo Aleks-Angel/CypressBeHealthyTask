@@ -27,14 +27,18 @@ describe(`[${lang}] ${capitalizedDomain} Order Test`, () => {
 
       cy.get('@siteReachable').then((reachable) => {
         if (!reachable) {
-          cy.log('⚠️ Site unreachable, skipping order flow');
-          return;
+          // Unreachable incl. WAF redirect-loop from the CI IP (see safeVisit
+          // pre-flight). this.skip() marks the run inconclusive — a yellow
+          // "skipped" in the report + a neutral Slack ⏭️ — instead of a false
+          // ✅ (we never tested checkout) or ❌ (the store isn't actually broken).
+          cy.log('⏭️ Site unreachable (WAF/bot-protection on CI IP) — skipping, not a checkout failure');
+          this.skip();
         }
 
         cy.get('body').then(($body) => {
           if (isCloudflareChallenged($body)) {
-            cy.log('⚠️ Cloudflare challenge detected — skipping domain');
-            return;
+            cy.log('⏭️ Cloudflare challenge detected — skipping domain (inconclusive)');
+            this.skip();
           }
 
           if (KNOWN_BRANDS.some(key => url.includes(key))) {

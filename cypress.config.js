@@ -3,6 +3,7 @@ const { webApps, getTargetUrl } = require('./cypress/support/domains');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('node:crypto');
+const { checkRedirectLoop } = require('./scripts/check-redirect-loop');
 
 // NOTE: this map exists here in Node context. e2e.js (browser context) cannot import from
 // here, so the screenshot name in e2e.js is only a placeholder — the after:screenshot
@@ -305,7 +306,11 @@ module.exports = defineConfig({
           if (!capturedAttemptErrors.has(title)) capturedAttemptErrors.set(title, []);
           capturedAttemptErrors.get(title).push({ message, stack });
           return null;
-        }
+        },
+        // Pre-flight redirect-loop probe — catches the WAF redirect-loop that
+        // makes cy.visit throw at onWindowLoad before @siteReachable can skip.
+        // Logic lives in scripts/check-redirect-loop.js (standalone + testable).
+        checkRedirectLoop(args) { return checkRedirectLoop(args); }
       });
 
       return config;

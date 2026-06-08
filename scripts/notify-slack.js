@@ -82,18 +82,27 @@ function readStats() {
 
 /** Build the Slack Block Kit payload for a finished run. */
 function buildPayload({ brand, lang, url, exitCode, stats }) {
+  // Three outcomes: failed (real checkout failure), skipped (store unreachable
+  // from CI — WAF/bot-protection on the runner IP, so the order flow was skipped
+  // and the result is inconclusive), or passed.
+  const skipped = stats ? stats.failures === 0 && stats.passes === 0 && stats.pending > 0 : false;
   const failed = stats ? stats.failures > 0 : exitCode !== 0;
-  const emoji = failed ? '🔴' : '🟢';
-  const headline = `BeHealthy random domain order run ${failed ? 'failed' : 'passed'}`;
+  const state = failed ? 'failed' : skipped ? 'skipped' : 'passed';
+  const emoji = { failed: '🔴', skipped: '⏭️', passed: '🟢' }[state];
+  const headline = `BeHealthy random domain order run ${state}`;
 
-  const resultLine = stats
-    ? `✅ ${stats.passes} passed   ❌ ${stats.failures} failed   ⏭ ${stats.pending} pending   ⏱ ${stats.duration}`
-    : `⚠️ No report found (run exited ${exitCode}) — likely crashed before reporting`;
+  const resultLine = !stats
+    ? `⚠️ No report found (run exited ${exitCode}) — likely crashed before reporting`
+    : skipped
+      ? '⏭️ Skipped — store unreachable from CI (checkout not tested this run)'
+      : `✅ ${stats.passes} passed   ❌ ${stats.failures} failed   ⏭ ${stats.pending} pending   ⏱ ${stats.duration}`;
 
   // One-line, plain-language verdict for non-technical viewers (managers/leads).
-  const summarySentence = failed
-    ? 'A test order did not complete — checkout may be broken on this store. Please review.'
-    : 'A test order completed successfully — checkout is working on this store.';
+  const summarySentence = {
+    failed: 'A test order did not complete — checkout may be broken on this store. Please review.',
+    skipped: "The store couldn't be reached from CI (bot-protection on the test server's IP). Checkout was not tested this run — not a known problem.",
+    passed: 'A test order completed successfully — checkout is working on this store.',
+  }[state];
 
   const blocks = [
     {
