@@ -43,9 +43,10 @@ Cypress.Commands.add('safeVisit', (url, options = {}) => {
   // skip cy.visit entirely. (A 403/timeout from Node is NOT a loop — the browser
   // may still pass — so we don't falsely skip good stores.)
   cy.task('checkRedirectLoop', { url }, { timeout: 30000 }).then((probe) => {
-    if (probe.looped) {
+    if (probe.blocked) {
+      const kind = probe.looped ? 'redirect-loop' : 'WAF challenge/block page';
       const trail = probe.chain.map(h => `${h.status}→${h.location || 'end'}`).join('  ');
-      cy.log(`⚠️ Pre-flight redirect-loop (${probe.reason}) — WAF blocking CI IP, marking unreachable`);
+      cy.log(`⚠️ Pre-flight ${kind} (${probe.reason}) — WAF blocking CI IP, marking unreachable`);
       cy.log(`   chain: ${trail}`);
       cy.wrap(false).as('siteReachable');
       return;
