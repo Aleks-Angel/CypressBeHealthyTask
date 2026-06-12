@@ -58,10 +58,21 @@ Top-level files:
   summary (via `scripts/notify-slack.js`, opt-in). Used by CI.
 - [open-cypress.js](open-cypress.js) — CLI: runs `domain_visit.cy.js` for one
   brand × *all* locales sequentially. Local "full sweep" entrypoint.
+- [lighthouse-audit.js](lighthouse-audit.js) — CLI: Lighthouse performance audit
+  for a brand × locale(s) (`npm run lighthouse -- <brand> <locale|csv|all>`),
+  reusing `domains.js`. Resolves the canonical URL, writes HTML+JSON to
+  `lighthouse-reports/`, prints Perf / TTFB / LCP + any never-finishing requests.
+  Run locally (a CI IP gets the WAF page). Separate from the order-flow suite;
+  measures page-load perf, not the checkout AJAX.
 - [scripts/notify-slack.js](scripts/notify-slack.js) — posts a one-line run
   summary to Slack after a `run-random.js` run. No-op unless `SLACK_WEBHOOK_URL`
   is set; never throws (a Slack outage can't fail the run). Manager-friendly
   message format; on CI it links to the Actions run page.
+- [scripts/check-redirect-loop.js](scripts/check-redirect-loop.js) — Node probe
+  behind the `checkRedirectLoop` cy.task: detects a WAF redirect-loop or a
+  Cloudflare challenge/block page (reads the response body) *before* `cy.visit`,
+  so `safeVisit` can mark the site unreachable and the spec skips gracefully
+  instead of dying at onWindowLoad. Never throws.
 
 ---
 
