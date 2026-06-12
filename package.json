@@ -26,7 +26,8 @@
     "cypress:run:futupets:all": "node open-cypress.js futupets all",
     "cypress:open:custom": "node open-cypress.js",
     "report:generate": "npx mochawesome-merge cypress/results/*.json > cypress/results/report.json && npx marg cypress/results/report.json --reportDir cypress/reports",
-    "test:ci": "npm run cypress:run && npm run report:generate"
+    "test:ci": "npm run cypress:run && npm run report:generate",
+    "lighthouse": "node lighthouse-audit.js"
   },
   "keywords": [],
   "author": "",
@@ -37,10 +38,12 @@
     "mochawesome": "^7.1.4"
   },
   "devDependencies": {
-    "cypress": "^15.16.0",
+    "chrome-launcher": "^1.1.2",
+    "cypress": "^15.17.0",
     "cypress-repeat": "^2.3.10",
     "eslint": "^8.57.1",
     "eslint-plugin-cypress": "^2.15.2",
+    "lighthouse": "^12.2.1",
     "mochawesome-merge": "^5.1.1",
     "mochawesome-report-generator": "^6.3.2"
   }

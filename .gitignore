@@ -9,6 +9,9 @@ cypress/videos/
 cypress/results/
 mochawesome-report/
 
+# Lighthouse audit output
+lighthouse-reports/
+
 # Environment and Logs
 *.log
 .env

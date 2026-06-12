@@ -235,6 +235,35 @@ run`) — the commit SHA stays in parentheses on CI runs for traceability.
 
 ---
 
+## 🔦 Performance audits (Lighthouse)
+
+Separate from the order-flow suite: [lighthouse-audit.js](lighthouse-audit.js)
+runs a Lighthouse performance audit against the same brand × locale URLs (resolved
+via `domains.js`, same `<brand> <locale>` args as `open-cypress.js`). Use it to
+put real numbers on a "the site feels slow" hunch.
+
+```powershell
+npm run lighthouse -- futupets gr          # one locale
+npm run lighthouse -- futupets gr,de,it    # several
+npm run lighthouse -- futupets all         # every supported locale
+```
+
+Writes an HTML + JSON report per locale to `lighthouse-reports/` (gitignored) and
+prints a summary — **Perf score, TTFB / Server Response Time, FCP, LCP, TBT,
+Speed Index**. TTFB is the backend-health signal. It follows redirects to the
+canonical URL first (e.g. `futupets.gr → www.futupets.gr`) and flags any request
+that never finishes (a hanging marketing beacon trips Lighthouse's "results may be
+incomplete" — the tool prints the offending URL so you don't have to dig the JSON).
+
+- **Run locally, not in CI** — from a datacenter IP the WAF serves the block/
+  challenge page, so Lighthouse would score that, not the store.
+- It audits the **landing page load**; it does **not** measure mid-flow checkout
+  AJAX (e.g. `checkout_vue/save`) — Lighthouse is for page-load perf, not the
+  order endpoint.
+- Needs `lighthouse` + `chrome-launcher` (devDependencies) and a local Chrome.
+
+---
+
 ## 📊 Reports & Artifacts
 
 Output goes under `cypress/results/`:
