@@ -55,15 +55,20 @@ Top-level files:
   screenshots into the report), error-bridge `captureAttemptError` task.
 - [run-random.js](run-random.js) — CLI: picks a random brand+locale, runs
   `domain_visit.cy.js` once, regenerates the HTML report, then posts a Slack
-  summary (via `scripts/notify-slack.js`, opt-in). Used by CI.
+  summary (via `scripts/notify-slack.js`, opt-in). On a GREEN run (+ webhook set)
+  it also Lighthouse-audits the URL and feeds the perf line into the card —
+  best-effort; a green order proves the IP reached the real store, so the audit
+  hits the real page not a WAF block. Used by CI.
 - [open-cypress.js](open-cypress.js) — CLI: runs `domain_visit.cy.js` for one
   brand × *all* locales sequentially. Local "full sweep" entrypoint.
 - [lighthouse-audit.js](lighthouse-audit.js) — CLI: Lighthouse performance audit
   for a brand × locale(s) (`npm run lighthouse -- <brand> <locale|csv|all>`),
   reusing `domains.js`. Resolves the canonical URL, writes HTML+JSON to
   `lighthouse-reports/`, prints Perf / TTFB / LCP + any never-finishing requests.
-  Run locally (a CI IP gets the WAF page). Separate from the order-flow suite;
-  measures page-load perf, not the checkout AJAX.
+  Run locally (a CI IP gets the WAF page). Measures page-load perf, not the
+  checkout AJAX. The launch/config/extraction lives in
+  [scripts/run-lighthouse.js](scripts/run-lighthouse.js) (shared with run-random.js's
+  green-run perf line).
 - [scripts/notify-slack.js](scripts/notify-slack.js) — posts a one-line run
   summary to Slack after a `run-random.js` run. No-op unless `SLACK_WEBHOOK_URL`
   is set; never throws (a Slack outage can't fail the run). Manager-friendly

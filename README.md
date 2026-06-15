@@ -233,6 +233,16 @@ invited to the channel): a plain-language pass/fail sentence, `Store` / `Website
 automated check`, `Manual run`, `Code push`, `Pull request check`, or `Local
 run`) — the commit SHA stays in parentheses on CI runs for traceability.
 
+**Performance line (green runs only).** On a **passed** order run (and only when
+`SLACK_WEBHOOK_URL` is set), `run-random.js` also Lighthouse-audits the same URL
+and adds a `Performance:` field + a `🔦 Perf NN` header tag (`🟢 ≥90 / 🟡 50–89 /
+🔴 <50`, with TTFB / LCP / Speed Index). A passed order *proves* the runner
+reached the real store this run, so Lighthouse scores the real page, never a WAF
+block — the green result is the reachability gate. Skipped/failed runs get no perf
+line. The audit is best-effort (a Lighthouse failure never breaks the run or the
+post). It's a **datacenter-IP regression baseline**, not real-user perf. Shared
+audit core: [scripts/run-lighthouse.js](scripts/run-lighthouse.js).
+
 ---
 
 ## 🔦 Performance audits (Lighthouse)
