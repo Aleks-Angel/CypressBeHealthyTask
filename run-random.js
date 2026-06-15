@@ -8,7 +8,8 @@
 // Pass `--browser <name>` to override the default (chrome).
 
 const { webApps, getTargetUrl, supportedLocalesFor, brandLabel } = require('./cypress/support/domains');
-const { notifySlack } = require('./scripts/notify-slack');
+const { notifySlack, readStats } = require('./scripts/notify-slack');
+const { resolveFinalUrl, auditUrl } = require('./scripts/run-lighthouse');
 const { spawn, execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
@@ -67,12 +68,41 @@ const command = [
   `--env selectedApp=${app},language=${lang},selectedBaseUrl=${url}`
 ].filter(Boolean).join(' ');
 
+// Lighthouse the URL ONLY on a green order run, for the Slack perf line. A passed
+// order proves the IP reached the real store this run, so Lighthouse gets the real
+// page (not a WAF block) — the green result is the reachability gate. Gated on the
+// webhook too (perf only feeds the Slack card). Best-effort: a Lighthouse failure
+// (e.g. no Chrome on the runner) must never break the run or the notification.
+const auditIfGreen = async () => {
+  const stats = readStats();
+  const passed = !!stats && stats.passes > 0 && stats.failures === 0 && stats.pending === 0;
+  if (!passed || !process.env.SLACK_WEBHOOK_URL) return null;
+  try {
+    const finalUrl = await resolveFinalUrl(url);
+    const outDir = path.join(__dirname, 'lighthouse-reports');
+    // Clear stale reports so the folder doesn't pile up. CI-safe: this runs during
+    // the job, before the fresh report is written below — the artifact-upload step
+    // runs later and gets the current report. (On a clean CI runner the rm is a no-op.)
+    fs.rmSync(outDir, { recursive: true, force: true });
+    fs.mkdirSync(outDir, { recursive: true });
+    const outBase = path.join(outDir, `${brandLabel(app).toLowerCase()}-${lang}`);
+    console.log(`🔦 Green run — Lighthouse audit of ${finalUrl} …`);
+    const perf = await auditUrl(finalUrl, outBase);
+    console.log(`   Perf ${perf.score} | TTFB ${perf.ttfb != null ? Math.round(perf.ttfb) + 'ms' : 'n/a'}`);
+    return perf;
+  } catch (err) {
+    console.error('⚠️ Lighthouse audit skipped (non-fatal):', err.message);
+    return null;
+  }
+};
+
 const child = spawn(command, [], { stdio: 'inherit', shell: true });
 child.on('close', async (code) => {
   generateFinalReport();
+  const perf = await auditIfGreen();
   // Post a summary to Slack if SLACK_WEBHOOK_URL is set (no-op otherwise, never throws).
   // Runs after the report so notify-slack can read the merged JSON.
-  await notifySlack({ brand: brandLabel(app), lang, url, exitCode: code ?? 0 });
+  await notifySlack({ brand: brandLabel(app), lang, url, exitCode: code ?? 0, perf });
   // Set the code and let the event loop drain instead of process.exit(): forcing
   // exit while fetch's socket handle is still closing trips a libuv assertion on
   // Windows (UV_HANDLE_CLOSING, src\win\async.c). Natural drain avoids the race.

@@ -42,3 +42,4 @@ jobs:
             cypress/results/screenshots
             cypress/results/videos
             cypress/results/final-report.html
+            lighthouse-reports

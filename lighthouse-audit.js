@@ -19,6 +19,7 @@
 // emulated mobile CPU.
 
 const { webApps, getTargetUrl, supportedLocalesFor, brandLabel } = require('./cypress/support/domains');
+const { resolveFinalUrl, auditUrl } = require('./scripts/run-lighthouse');
 const fs = require('fs');
 const path = require('path');
 
@@ -51,89 +52,11 @@ const targets = locales.filter(l => brandLocales.includes(l));
 if (!targets.length) { console.error('❌ No valid locales to audit.'); process.exit(1); }
 
 const outDir = path.join(__dirname, 'lighthouse-reports');
+// Fresh each invocation — don't accumulate stale reports from earlier runs/locales.
+fs.rmSync(outDir, { recursive: true, force: true });
 fs.mkdirSync(outDir, { recursive: true });
 
-// Desktop preset — minimal throttling so the scores reflect the real server/page
-// rather than an emulated slow mobile CPU. We only need the performance category.
-const DESKTOP_CONFIG = {
-  extends: 'lighthouse:default',
-  settings: {
-    formFactor: 'desktop',
-    screenEmulation: { mobile: false, width: 1350, height: 940, deviceScaleFactor: 1, disabled: false },
-    throttling: { rttMs: 40, throughputKbps: 10 * 1024, cpuSlowdownMultiplier: 1 },
-    // Slow storefronts (futupets) can't settle within the 45s default and return
-    // "results may be incomplete". Give the load more room.
-    maxWaitForLoad: 60000,
-    onlyCategories: ['performance'],
-  },
-};
-
-// Follow redirects (Node) to the canonical final URL before auditing, so
-// Lighthouse scores the real page (e.g. futupets.gr → www.futupets.gr) instead of
-// counting the redirect against load time and warning about it.
-function resolveFinalUrl(startUrl, maxHops = 10) {
-  return new Promise((resolve) => {
-    let finished = false;
-    const done = (u) => { if (!finished) { finished = true; resolve(u); } };
-    const hop = (current, n) => {
-      if (n > maxHops) { done(current); return; }
-      let lib;
-      try { lib = require(new URL(current).protocol === 'https:' ? 'node:https' : 'node:http'); }
-      catch { done(current); return; }
-      const req = lib.get(current, { timeout: 15000, headers: { 'User-Agent': 'Mozilla/5.0' } }, (res) => {
-        res.resume();
-        if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-          let next;
-          try { next = new URL(res.headers.location, current).href; } catch { done(current); return; }
-          hop(next, n + 1);
-          return;
-        }
-        done(current);
-      });
-      req.on('timeout', () => { req.destroy(); done(current); });
-      req.on('error', () => done(current));
-    };
-    hop(startUrl, 0);
-  });
-}
-
 const ms = (v) => (v == null ? 'n/a' : v >= 1000 ? `${(v / 1000).toFixed(1)}s` : `${Math.round(v)}ms`);
-
-async function auditUrl(url, outBase) {
-  // lighthouse is ESM-only; load both via dynamic import so this CJS script works.
-  // Resolve the export defensively (CJS vs ESM interop differs between packages).
-  const chromeLauncher = await import('chrome-launcher');
-  const launch = chromeLauncher.launch ?? chromeLauncher.default?.launch;
-  const lhMod = await import('lighthouse');
-  const lighthouse = lhMod.default ?? lhMod;
-  const chrome = await launch({ chromeFlags: ['--headless=new', '--no-sandbox'] });
-  try {
-    const { lhr, report } = await lighthouse(
-      url,
-      { port: chrome.port, output: ['html', 'json'], logLevel: 'error' },
-      DESKTOP_CONFIG,
-    );
-    fs.writeFileSync(`${outBase}.html`, report[0]);
-    fs.writeFileSync(`${outBase}.json`, report[1]);
-    const a = lhr.audits;
-    const num = (id) => (a[id] ? a[id].numericValue : null);
-    const netItems = (a['network-requests'] && a['network-requests'].details && a['network-requests'].details.items) || [];
-    return {
-      score: Math.round((lhr.categories.performance.score ?? 0) * 100),
-      ttfb: num('server-response-time'),
-      fcp: num('first-contentful-paint'),
-      lcp: num('largest-contentful-paint'),
-      tbt: num('total-blocking-time'),
-      si: num('speed-index'),
-      warnings: lhr.runWarnings || [],
-      // Requests that never completed — the usual cause of a "results may be
-      // incomplete" warning (e.g. a hanging marketing beacon that never closes).
-      unfinished: netItems.filter(r => r.finished === false).map(r => r.url),
-    };
-  } finally {
-    await chrome.kill();
-  }
-}
 
 (async () => {
   const rows = [];

@@ -80,8 +80,34 @@ function readStats() {
   }
 }
 
-/** Build the Slack Block Kit payload for a finished run. */
-function buildPayload({ brand, lang, url, exitCode, stats }) {
+/** Perf-score colour, Lighthouse-style: 🟢 ≥90, 🟡 50–89, 🔴 <50. */
+const perfEmoji = (s) => (s >= 90 ? '🟢' : s >= 50 ? '🟡' : '🔴');
+const fmtMs = (v) => (v == null ? 'n/a' : v >= 1000 ? `${(v / 1000).toFixed(1)}s` : `${Math.round(v)}ms`);
+
+/**
+ * Short, readable name for a never-finishing request (so the card says *what*
+ * hung, not just a count). Prefers the OpenCart `route` tail (e.g.
+ * `klaviyoSyncKlaviyoCookie`), else the last path segment, else the host.
+ */
+function shortRequest(u) {
+  try {
+    const parsed = new URL(u);
+    const route = parsed.searchParams.get('route');
+    if (route) return route.split('/').filter(Boolean).pop();
+    return parsed.pathname.split('/').filter(Boolean).pop() || parsed.hostname;
+  } catch {
+    return String(u).slice(0, 60);
+  }
+}
+
+/**
+ * Build the Slack Block Kit payload for a finished run.
+ * @param {object} info
+ * @param {object|null} [info.perf] Lighthouse metrics — present only on a GREEN
+ *   order run we audited (run-random.js gates the audit on pass + webhook). Adds
+ *   a perf line to the header + a Performance field.
+ */
+function buildPayload({ brand, lang, url, exitCode, stats, perf }) {
   // Three outcomes: failed (real checkout failure), skipped (store unreachable
   // from CI — WAF/bot-protection on the runner IP, so the order flow was skipped
   // and the result is inconclusive), or passed.
@@ -89,7 +115,9 @@ function buildPayload({ brand, lang, url, exitCode, stats }) {
   const failed = stats ? stats.failures > 0 : exitCode !== 0;
   const state = failed ? 'failed' : skipped ? 'skipped' : 'passed';
   const emoji = { failed: '🔴', skipped: '⏭️', passed: '🟢' }[state];
-  const headline = `BeHealthy random domain order run ${state}`;
+  // Perf only rides along on a green pass; show it in the header too.
+  const headline = `BeHealthy random domain order run ${state}`
+    + (perf ? `   ·   🔦 Perf ${perf.score} ${perfEmoji(perf.score)}` : '');
 
   const resultLine = !stats
     ? `⚠️ No report found (run exited ${exitCode}) — likely crashed before reporting`
@@ -104,6 +132,22 @@ function buildPayload({ brand, lang, url, exitCode, stats }) {
     passed: 'A test order completed successfully — checkout is working on this store.',
   }[state];
 
+  const fields = [
+    { type: 'mrkdwn', text: `*Store:*\n${brand} × ${lang}` },
+    { type: 'mrkdwn', text: `*Website:*\n${url}` },
+    { type: 'mrkdwn', text: `*Result:*\n${resultLine}` },
+  ];
+  if (perf) {
+    let perfText = `${perf.score} ${perfEmoji(perf.score)} │ TTFB ${fmtMs(perf.ttfb)} │ LCP ${fmtMs(perf.lcp)} │ SpeedIdx ${fmtMs(perf.si)}`;
+    if (perf.unfinished && perf.unfinished.length) {
+      const n = perf.unfinished.length;
+      const more = n > 1 ? ` (+${n - 1} more)` : '';
+      perfText += `\n⚠️ ${n} request${n > 1 ? 's' : ''} never finished: \`${shortRequest(perf.unfinished[0])}\`${more}`;
+    }
+    fields.push({ type: 'mrkdwn', text: `*Performance:*\n${perfText}` });
+  }
+  fields.push({ type: 'mrkdwn', text: `*Triggered by:*\n${triggeredBy()}` });
+
   const blocks = [
     {
       type: 'header',
@@ -113,15 +157,7 @@ function buildPayload({ brand, lang, url, exitCode, stats }) {
       type: 'section',
       text: { type: 'mrkdwn', text: summarySentence },
     },
-    {
-      type: 'section',
-      fields: [
-        { type: 'mrkdwn', text: `*Store:*\n${brand} × ${lang}` },
-        { type: 'mrkdwn', text: `*Website:*\n${url}` },
-        { type: 'mrkdwn', text: `*Result:*\n${resultLine}` },
-        { type: 'mrkdwn', text: `*Triggered by:*\n${triggeredBy()}` },
-      ],
-    },
+    { type: 'section', fields },
   ];
 
   // On CI, add a clickable link to the run page (artifact + report download).
@@ -139,11 +175,12 @@ function buildPayload({ brand, lang, url, exitCode, stats }) {
 
 /**
  * Post a run summary to Slack. No-op when SLACK_WEBHOOK_URL is unset. Never throws.
- * @param {{brand:string, lang:string, url:string, exitCode:number}} info random-pick
- *   metadata from run-random.js (brand = display name via domains.brandLabel) plus
- *   the cypress process exit code.
+ * @param {{brand:string, lang:string, url:string, exitCode:number, perf?:object}} info
+ *   random-pick metadata from run-random.js (brand = display name via
+ *   domains.brandLabel) + the cypress exit code. `perf` is the Lighthouse metrics,
+ *   present only on a green order run that was audited.
  */
-async function notifySlack({ brand, lang, url, exitCode }) {
+async function notifySlack({ brand, lang, url, exitCode, perf }) {
   const webhook = process.env.SLACK_WEBHOOK_URL;
   if (!webhook) {
     // Opt-in: skip when not configured, but say so — otherwise a missing env var
@@ -154,7 +191,7 @@ async function notifySlack({ brand, lang, url, exitCode }) {
   }
 
   const stats = readStats();
-  const payload = buildPayload({ brand, lang, url, exitCode, stats });
+  const payload = buildPayload({ brand, lang, url, exitCode, stats, perf });
 
   try {
     const res = await fetch(webhook, {
@@ -176,4 +213,4 @@ async function notifySlack({ brand, lang, url, exitCode }) {
   }
 }
 
-module.exports = { notifySlack, formatDuration, buildPayload };
+module.exports = { notifySlack, formatDuration, buildPayload, readStats };
