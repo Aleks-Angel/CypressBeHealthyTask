@@ -1,3 +1,5 @@
+import { normalizeText } from './utils/text';
+
 // Selectors that match a product card across the various storefront themes
 // (Futunatura, Healthy/Purely, OpenCart, Sweet/embla card layouts).
 const PRODUCT_CARD_SELECTORS = [
@@ -186,7 +188,7 @@ Cypress.Commands.add('safeType', (getElement, value, options = {}) => {
         throw new Error('safeType target missing after type');
       }
 
-      const normalizeValue = (input) => typeof input === 'string' ? input.trim().toLowerCase() : input;
+      const normalizeValue = normalizeText;
       const typedValue = $el.val();
       const expectedNormalized = normalizeValue(value);
       const actualNormalized = normalizeValue(typedValue);

@@ -123,6 +123,30 @@ export function brandLabel(appOrUrl) {
   return bare ? bare.charAt(0).toUpperCase() + bare.slice(1) : appOrUrl;
 }
 
+/**
+ * Normalize a brand base URL or name to a comparable slug: lowercased, with
+ * protocol / `www.` / dots stripped (so `'https://www.purelynutrition.'` and
+ * `'PurelyNutrition'` both become `'purelynutrition'`).
+ * @param {string} str
+ * @returns {string}
+ */
+export function normalizeApp(str) {
+  return str.toLowerCase().replace(/https?:\/\/(www\.)?/, '').replace(/\./g, '');
+}
+
+/**
+ * Resolve a brand NAME (or fragment) to its `webApps` base URL — case- and
+ * punctuation-insensitive (e.g. `'futupets'` → `'https://futupets.'`). Shared by
+ * the open-cypress.js and lighthouse-audit.js CLIs. Returns undefined if no
+ * brand matches.
+ * @param {string} name
+ * @returns {string|undefined}
+ */
+export function resolveBrandApp(name) {
+  const target = normalizeApp(name);
+  return webApps.find(app => normalizeApp(app).includes(target));
+}
+
 export {
   webApps,
   languages,
