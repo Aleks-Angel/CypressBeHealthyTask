@@ -18,7 +18,7 @@
 // (minimal throttling) so the numbers reflect the real server + page, not an
 // emulated mobile CPU.
 
-const { webApps, getTargetUrl, supportedLocalesFor, brandLabel } = require('./cypress/support/domains');
+const { webApps, getTargetUrl, supportedLocalesFor, brandLabel, normalizeApp, resolveBrandApp } = require('./cypress/support/domains');
 const { resolveFinalUrl, auditUrl } = require('./scripts/run-lighthouse');
 const fs = require('fs');
 const path = require('path');
@@ -32,8 +32,7 @@ if (!brandArg || !localeArg) {
   process.exit(1);
 }
 
-const normalizeApp = (str) => str.toLowerCase().replace(/https?:\/\/(www\.)?/, '').replace(/\./g, '');
-const selectedApp = webApps.find(app => normalizeApp(app).includes(normalizeApp(brandArg)));
+const selectedApp = resolveBrandApp(brandArg);
 if (!selectedApp) {
   console.error(`❌ Unknown brand "${brandArg}". Known: ${webApps.map(normalizeApp).join(', ')}`);
   process.exit(1);

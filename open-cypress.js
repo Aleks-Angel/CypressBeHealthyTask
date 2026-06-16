@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-const { webApps, languages, getTargetUrl, supportedLocalesFor } = require('./cypress/support/domains');
+const { languages, getTargetUrl, supportedLocalesFor, resolveBrandApp } = require('./cypress/support/domains');
 const { spawn, execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
@@ -12,8 +12,7 @@ if (!webApp || !language) {
   process.exit(1);
 }
 
-const normalizeApp = (str) => str.toLowerCase().replace(/https?:\/\/(www\.)?/, '').replace(/\./g, '');
-const selectedApp = webApps.find(app => normalizeApp(app).includes(normalizeApp(webApp)));
+const selectedApp = resolveBrandApp(webApp);
 
 if (!selectedApp) process.exit(1);
 

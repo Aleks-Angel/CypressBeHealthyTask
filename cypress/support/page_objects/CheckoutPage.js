@@ -2,6 +2,7 @@ import { normalizeLanguageCode, resolveLangCode, pickLocalized, getSiteLanguage 
 import { SUCCESS_TEXT_PATTERN } from '../utils/success-patterns';
 import { CANCEL_SUCCESS_PATTERN, CANCEL_STATUS_PATTERN, STATUS_HEADING_PATTERN } from '../utils/cancel-patterns';
 import { ORDER_NUMBER_SELECTOR } from '../utils/order-selectors';
+import { normalizeText } from '../utils/text';
 
 // Languages whose checkout uses an additional region/county vue-select dropdown.
 const COUNTY_DROPDOWN_LANGS = ['ro', 'bg', 'sk', 'it'];
@@ -102,6 +103,37 @@ class CheckoutPage {
   }
 
   /**
+   * `clear({force}) + type({force})` — the suite's default "set a plain text
+   * field" for these Vue-managed inputs, where focus-based typing races the
+   * re-render. (vue-select dropdowns use `_selectFromVueSelect` instead; the
+   * RO/BG block/floor/apartment fills stay two-statement on purpose, to re-query
+   * between clear and type.)
+   *
+   * @param {Cypress.Chainable} chain - The field chainable (e.g. `this.cityInput`)
+   * @param {string} value
+   * @returns {Cypress.Chainable}
+   * @private
+   */
+  _forceType(chain, value) {
+    return chain.clear({ force: true }).type(value, { force: true });
+  }
+
+  /**
+   * Resolve the payment-method id for a locale: `bank_transfer` on the listed
+   * langs, else the configured `defaultMethod` (falling back to `cod`).
+   *
+   * @param {{defaultMethod?: string, bankTransferLangs?: string[]}} mapping
+   * @param {string} langCode
+   * @returns {string}
+   * @private
+   */
+  _resolveMethodId(mapping, langCode) {
+    return mapping.bankTransferLangs?.includes(langCode)
+      ? 'bank_transfer'
+      : (mapping.defaultMethod || 'cod');
+  }
+
+  /**
    * Wait for loading overlays to clear and for the submit button to settle into
    * a stable, enabled state. Guards against Vue mid-render swapping out the
    * button between when we query it and when we click it.
@@ -148,14 +180,13 @@ class CheckoutPage {
    */
   fillBasicInfo(user) {
     cy.log('👤 Entering Customer Details...');
-    const forceType = ($field, value) => $field.clear({ force: true }).type(value, { force: true });
 
-    forceType(this.firstNameInput, user.firstName);
-    forceType(this.lastNameInput, user.lastName);
-    forceType(this.emailInput, user.email);
-    forceType(this.phoneNumberInput, user.phone);
-    forceType(this.addressInput, user.address1);
-    forceType(this.addressInput2, user.address2);
+    this._forceType(this.firstNameInput, user.firstName);
+    this._forceType(this.lastNameInput, user.lastName);
+    this._forceType(this.emailInput, user.email);
+    this._forceType(this.phoneNumberInput, user.phone);
+    this._forceType(this.addressInput, user.address1);
+    this._forceType(this.addressInput2, user.address2);
 
     // Assert the last field actually holds its value (Vue committed the inputs)
     // instead of a blind settle-wait — proceeds the instant it's in, and if a
@@ -174,7 +205,7 @@ class CheckoutPage {
     cy.log(`📍 Step: Filling Address for [${langCode.toUpperCase()}]`);
     cy.log(`🏙️ Target City: ${city} | Zip: ${postalCode}`);
 
-    this.postalCodeInput.clear({ force: true }).type(postalCode, { force: true });
+    this._forceType(this.postalCodeInput, postalCode);
     cy.log(`STEP: Entered Postal Code: ${postalCode}`);
 
     // Replace a blind settle-wait with the real readiness conditions: the postal
@@ -213,7 +244,7 @@ class CheckoutPage {
    * @returns {Cypress.Chainable}
    */
   fillItalianAddress(county, city) {
-    this.countyAddressField1.clear({ force: true }).type(county, { force: true });
+    this._forceType(this.countyAddressField1, county);
     this.countyDropdownList.should('be.visible').find('li').first().click({ force: true });
     return cy.safeType(() => this.cityInput, city);
   }
@@ -230,7 +261,7 @@ class CheckoutPage {
    * @returns {Cypress.Chainable}
    */
   fillSlovakianAddress(county, city) {
-    return this.countyAddressField1.clear({ force: true }).type(county, { force: true }).then(() => {
+    return this._forceType(this.countyAddressField1, county).then(() => {
       this.countyDropdownList.find('li').contains(county).click({ force: true });
       this.cityInput.should('be.visible').and('not.be.disabled');
       return cy.safeType(() => this.cityInput, city);
@@ -263,7 +294,7 @@ class CheckoutPage {
    * @private
    */
   _selectFromVueSelect(comboboxId, inputSelector, listSelector, value, attemptsLeft = 3) {
-    const normalize = (v) => typeof v === 'string' ? v.trim().toLowerCase() : '';
+    const normalize = normalizeText;
     return cy.get(comboboxId, { timeout: 10000 })
       .should('exist')
       .should('be.visible')
@@ -423,7 +454,7 @@ class CheckoutPage {
    */
   verifyCityAfterAccept(user, paymentMethods) {
     return this.getLocalizedData(user).then(({ city, langCode }) => {
-      const normalize = (value) => typeof value === 'string' ? value.trim().toLowerCase() : '';
+      const normalize = normalizeText;
       const expectedCity = city || '';
       const expectedNormalized = normalize(expectedCity);
       const isDropdownLang = langCode === 'bg' || langCode === 'ro';
@@ -475,8 +506,7 @@ class CheckoutPage {
         .then(() => {
           if (!paymentMethods) return null;
 
-          const isBankTransfer = paymentMethods.bankTransferLangs?.includes(langCode);
-          const methodId = isBankTransfer ? 'bank_transfer' : (paymentMethods.defaultMethod || 'cod');
+          const methodId = this._resolveMethodId(paymentMethods, langCode);
 
           return cy.get('body').then(($body) => {
             if (this._isPaymentMethodSelected($body, methodId)) {
@@ -507,10 +537,7 @@ class CheckoutPage {
    */
   selectPaymentMethodByLanguage(mapping) {
     return getSiteLanguage().then((lang) => {
-      const langCode = normalizeLanguageCode(lang);
-      const isBankTransfer = mapping.bankTransferLangs?.includes(langCode);
-      const methodId = isBankTransfer ? 'bank_transfer' : (mapping.defaultMethod || 'cod');
-
+      const methodId = this._resolveMethodId(mapping, normalizeLanguageCode(lang));
       cy.log(`💳 Selecting payment method: ${methodId}`);
       return this._selectPaymentMethodWithRetry(methodId, 3);
     });
@@ -642,9 +669,7 @@ class CheckoutPage {
    */
   verifyPaymentMethodStable(mapping) {
     return getSiteLanguage().then((lang) => {
-      const langCode = normalizeLanguageCode(lang);
-      const isBankTransfer = mapping.bankTransferLangs?.includes(langCode);
-      const methodId = isBankTransfer ? 'bank_transfer' : (mapping.defaultMethod || 'cod');
+      const methodId = this._resolveMethodId(mapping, normalizeLanguageCode(lang));
 
       const checkOnce = () => cy.get('body').then(($body) => this._isPaymentMethodSelected($body, methodId));
 
