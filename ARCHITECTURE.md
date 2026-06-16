@@ -51,8 +51,9 @@ cypress/
 
 Top-level files:
 - [cypress.config.js](cypress.config.js) — Cypress config, screenshot/video
-  renaming, `after:spec` mochawesome augmenter (injects retry attempt errors +
-  screenshots into the report), error-bridge `captureAttemptError` task.
+  renaming, two `after:spec` mochawesome augmenters (inject retry attempt errors +
+  screenshots, and the per-test step trail, into the report), error-bridge
+  `captureAttemptError` + `recordStepTrail` tasks.
 - [run-random.js](run-random.js) — CLI: picks a random brand+locale, runs
   `domain_visit.cy.js` once, regenerates the HTML report, then posts a Slack
   summary (via `scripts/notify-slack.js`, opt-in). On a GREEN run (+ webhook set)
@@ -203,6 +204,28 @@ error + screenshot in that pass entry:
 before afterEach in Cypress, so by the time we'd attach the context, mochawesome
 has already finalized the test entry. The Node-side augmenter sidesteps the
 timing problem entirely by editing the JSON file after it's written.
+
+### Step trail
+
+A second augmenter on the same rails records what each run actually did, so the
+report narrates the flow (and the runner command log + video both clip the final
+synchronous `cy.log`, which otherwise made passing cancel-confirmation steps look
+missing):
+
+1. `Cypress.Commands.overwrite('log', ...)` in [e2e.js](cypress/support/e2e.js)
+   captures every `cy.log` into a per-test `{at, msg}` trail (read-only — it still
+   calls the real log). `beforeEach` resets it per attempt; `afterEach` bridges it
+   via `cy.task('recordStepTrail', ...)` — fired before the failed-branch return,
+   so it covers **pass, fail, and skip**.
+2. The `recordStepTrail` task stores trails in a Node-side Map (last write wins →
+   final attempt). `augmentReportWithStepTrails` injects the trail into the
+   mochawesome JSON `context` for **every** test, running after the retry
+   augmenter and **appending** (shared `appendContext` helper) so flaky-attempt
+   info and the step trail coexist. Both augmenters share `resolveSpecJson`.
+
+No manual `cy.step()` instrumentation — it reuses the suite's existing narration
+logs, so nothing rots when methods are refactored. Renders in the report's
+"Additional Test Context" panel as an aligned, timestamped list.
 
 ---
 

@@ -9,6 +9,7 @@ End-to-end Cypress test suite covering 8 BeHealthy storefronts (Futunatura, Heal
 - **Brand × locale matrix** — one parametric spec (`domain_visit.cy.js`) runs against any of 8 brands × 16 locales = up to 128 combinations (futupets has 4 locales excluded via `excludedLocales`, bringing the real total to 124). URL composition lives in `cypress/support/domains.js` (one map for per-brand TLD overrides, one for unsupported locales per brand).
 - **Vue race resilience** — checkouts use vue-select dropdowns and Bootstrap modals that race during AJAX-driven re-renders. The suite has explicit, per-site-tuned recovery for the BG/RO city/county dropdowns, payment-method radios, and stuck modals. See [ARCHITECTURE.md](ARCHITECTURE.md#load-bearing-code--do-not-casually-refactor) for which code is load-bearing.
 - **Mochawesome flaky-attempt augmentation** — Cypress retries (`runMode: 1`) collapse a failed-then-passed test into a single pass entry in the report. A Node-side `after:spec` augmenter in `cypress.config.js` reads Cypress's per-attempt error info and injects "Flaky test", "Attempt N error", and "Failure screenshot (attempt 1)" into the visible test entry — so flaky tests in CI artifacts still show what failed and what they looked like at the failure moment.
+- **Per-test step trail** — every `cy.log` is auto-captured (`Cypress.Commands.overwrite('log')`) into a timestamped trail and injected into the report's "Additional Test Context" panel for every run (pass/fail/skip). Lets you read what each run actually did — including the final cancel-confirmation step the video and runner command log clip off the end. No manual `cy.step()` instrumentation; it reuses the suite's existing narration logs.
 - **Single-source-of-truth utilities** — localized regexes (success / cancel / status), the order-number selector union, and language-code resolution all live in `cypress/support/utils/*` so adding a new locale's wording or selector is a one-file edit. No copy-paste-drift bugs.
 - **Self-contained HTML report** — screenshots are embedded as base64 data URIs into `final-report.html`, so emailing or archiving the single file preserves everything.
 
@@ -295,6 +296,8 @@ cypress/results/
 - `Failure screenshot (attempt 1)` — embedded PNG of what attempt 1's failure looked like
 
 This works because the augmenter runs in Node, after mocha has finalized the test entry — `addContext` from inside afterEach is too late in Cypress's lifecycle (see [ARCHITECTURE.md](ARCHITECTURE.md#mochawesome-report-augmentation) for the why).
+
+**Step trail:** a second `after:spec` augmenter injects a `Step trail (N steps)` context section into **every** test (pass, fail, or skip) — an aligned, timestamped list of every `cy.log` the run emitted. It's recorded in the browser by overwriting `cy.log` (so it survives the video/command-log clipping the final synchronous log) and bridged to Node via `cy.task('recordStepTrail')`. On a failed run it shows exactly how far the flow got before throwing.
 
 The renaming/move logic for screenshots and videos lives in `cypress.config.js` (`after:screenshot` and `after:spec` hooks). The lang-specific temp folders are deleted after each spec; only the final renamed files survive.
 

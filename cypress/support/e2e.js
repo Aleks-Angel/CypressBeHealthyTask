@@ -9,6 +9,23 @@
 //     post-conversion; suppressing them is intentional)
 import './commands';
 
+// --- Step trail -----------------------------------------------------------
+// Record every cy.log as a narrated step so the mochawesome report shows what
+// happened on EVERY run (incl. green ones), per test. The runner's command log
+// and the video both clip the final synchronous cy.log (e.g. the cancel-
+// confirmation log lands in frames the recorder has already stopped writing) —
+// this captures it in JS the instant it fires, then bridges the trail to the
+// Node-side after:spec augmenter (same path as captureAttemptError) which
+// injects it as `context` on the test entry. Read-only: it only observes log.
+const stepTrail = [];
+let stepTrailStart = 0;
+
+Cypress.Commands.overwrite('log', (originalFn, ...args) => {
+  const msg = args.map(a => (typeof a === 'string' ? a : JSON.stringify(a))).join(' ');
+  stepTrail.push({ at: Date.now() - stepTrailStart, msg });
+  return originalFn(...args);
+});
+
 /**
  * Read mocha's per-test retry counter robustly across mocha versions.
  * Cypress wraps mocha and the property name has historically varied:
@@ -28,6 +45,14 @@ function getCurrentRetry(test) {
 afterEach(function () {
   const test = this.currentTest;
   if (!test) return;
+
+  // Bridge the step trail (pass, fail, or skip) to Node so the after:spec
+  // augmenter can inject it into the report. On retry the final attempt's
+  // beforeEach reset means this carries only the last attempt's steps; the
+  // Node-side Map overwrites by title so the final attempt wins.
+  if (stepTrail.length) {
+    cy.task('recordStepTrail', { title: test.title, steps: stepTrail.slice() }, { log: false });
+  }
 
   if (test.state === 'failed') {
     // Screenshot is auto-captured by Cypress (screenshotOnRunFailure: true) at the
@@ -53,6 +78,11 @@ afterEach(function () {
 });
 
 beforeEach(() => {
+  // Reset the step trail at the start of each attempt (so a retried test's
+  // trail reflects only the final attempt, matching the report's final state).
+  stepTrail.length = 0;
+  stepTrailStart = Date.now();
+
   // Reduce log noise — we don't care about per-request entries in this suite.
   cy.intercept({ resourceType: /xhr|fetch/ }, { log: false });
 

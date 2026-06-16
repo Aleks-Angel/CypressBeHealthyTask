@@ -74,6 +74,77 @@ function formatAttemptError(attempt) {
   return e.stack ? `${header}\n\n${e.stack}` : header;
 }
 
+// Resolve the per-spec mochawesome JSON: prefer `<lang>.json` (our reportFilename),
+// else the newest mochawesome*.json fallback. Waits up to 5s for it to flush to disk.
+// Shared by the retry-info and step-trail augmenters below.
+async function resolveSpecJson(resultsDir, lang) {
+  let jsonFile = path.join(resultsDir, `${lang}.json`);
+  if (!fs.existsSync(jsonFile)) {
+    const fallback = fs.readdirSync(resultsDir)
+      .filter(f => /^mochawesome.*\.json$/.test(f))
+      .map(f => ({ f, mt: fs.statSync(path.join(resultsDir, f)).mtimeMs }))
+      .sort((a, b) => b.mt - a.mt)[0];
+    if (!fallback) return null;
+    jsonFile = path.join(resultsDir, fallback.f);
+  }
+  return (await waitForFile(jsonFile, 5000)) ? jsonFile : null;
+}
+
+// Append a context entry to a test's mochawesome `context`, preserving any
+// entries an earlier augmenter already set (retry info + step trail coexist).
+function appendContext(test, entry) {
+  let entries = [];
+  if (test.context) {
+    try {
+      const parsed = JSON.parse(test.context);
+      entries = Array.isArray(parsed) ? parsed : [parsed];
+    } catch {
+      entries = [{ title: 'Context', value: String(test.context) }];
+    }
+  }
+  entries.push(entry);
+  test.context = JSON.stringify(entries, null, 2);
+}
+
+// Render the captured cy.log steps as an aligned, monospace trail for the report:
+//   " 1. +    0ms  🎯 Testing: https://…"
+//   "13. +21770ms  ✅ Cancellation confirmed via success modal"
+function formatStepTrail(steps) {
+  const pad = String(steps[steps.length - 1].at).length;
+  return steps
+    .map((s, i) => `${String(i + 1).padStart(2)}. +${String(s.at).padStart(pad)}ms  ${s.msg}`)
+    .join('\n');
+}
+
+// Inject the per-test step trail (bridged from e2e.js via recordStepTrail) into
+// the mochawesome JSON for EVERY test — passed, failed, or skipped — so the
+// report narrates what each run actually did. Runs after the retry augmenter and
+// appends, so flaky-attempt context is preserved.
+async function augmentReportWithStepTrails({ resultsDir, lang, stepTrails }) {
+  if (!stepTrails || stepTrails.size === 0) return;
+
+  const jsonFile = await resolveSpecJson(resultsDir, lang);
+  if (!jsonFile) return;
+
+  const report = JSON.parse(fs.readFileSync(jsonFile, 'utf8'));
+  let modified = false;
+
+  for (const rootSuite of (report.results || [])) {
+    for (const [title, steps] of stepTrails) {
+      if (!steps || !steps.length) continue;
+      const t = findTestByTitle(rootSuite, title);
+      if (!t) continue;
+      appendContext(t, { title: `Step trail (${steps.length} steps)`, value: formatStepTrail(steps) });
+      modified = true;
+    }
+  }
+
+  if (modified) {
+    fs.writeFileSync(jsonFile, JSON.stringify(report, null, 2));
+    console.log(`📋 Injected step trail(s) into ${path.basename(jsonFile)}`);
+  }
+}
+
 // mochawesome's HTML report only renders the FINAL state of a retried test, so
 // attempt-1's error and screenshot are otherwise invisible. This walks the
 // per-spec mochawesome JSON after it's written and injects the failed-attempt
@@ -83,18 +154,8 @@ async function augmentReportWithRetryInfo({ resultsDir, lang, siteAlias, results
   const retried = (results && results.tests || []).filter(t => (t.attempts || []).length > 1);
   if (retried.length === 0) return;
 
-  const langJson = path.join(resultsDir, `${lang}.json`);
-  let jsonFile = langJson;
-  if (!fs.existsSync(jsonFile)) {
-    const fallback = fs.readdirSync(resultsDir)
-      .filter(f => /^mochawesome.*\.json$/.test(f))
-      .map(f => ({ f, mt: fs.statSync(path.join(resultsDir, f)).mtimeMs }))
-      .sort((a, b) => b.mt - a.mt)[0];
-    if (!fallback) return;
-    jsonFile = path.join(resultsDir, fallback.f);
-  }
-  const ready = await waitForFile(jsonFile, 5000);
-  if (!ready) return;
+  const jsonFile = await resolveSpecJson(resultsDir, lang);
+  if (!jsonFile) return;
 
   const screenshotFile = path.join(resultsDir, 'screenshots', `${lang}_${siteAlias}_order.png`);
   const screenshotDataUri = fs.existsSync(screenshotFile)
@@ -136,7 +197,7 @@ async function augmentReportWithRetryInfo({ resultsDir, lang, siteAlias, results
   });
 
   if (modified) {
-    fs.writeFileSync(jsonFile, JSON.stringify(report));
+    fs.writeFileSync(jsonFile, JSON.stringify(report, null, 2));
     console.log(`📝 Augmented ${path.basename(jsonFile)} with attempt-1 failure info (${retried.length} retried test(s))`);
   }
 }
@@ -217,6 +278,10 @@ module.exports = defineConfig({
       // Keyed by test title; one entry per failed attempt in order.
       const capturedAttemptErrors = new Map();
 
+      // Per-test step trails bridged from e2e.js's cy.log recorder (keyed by test
+      // title; final attempt overwrites). Injected into the report in after:spec.
+      const stepTrails = new Map();
+
       on('after:screenshot', (details) => {
         screenshotCount++;
         const suffix = screenshotCount > 1 ? `_${screenshotCount}` : '';
@@ -251,6 +316,17 @@ module.exports = defineConfig({
           console.warn('⚠️ Retry-info augmentation failed:', e.message);
         }
         capturedAttemptErrors.clear();
+
+        try {
+          await augmentReportWithStepTrails({
+            resultsDir: path.join('cypress', 'results'),
+            lang,
+            stepTrails,
+          });
+        } catch (e) {
+          console.warn('⚠️ Step-trail augmentation failed:', e.message);
+        }
+        stepTrails.clear();
 
         const specBaseName = path.basename(spec.relative, '.cy.js');
         const rawCandidates = [
@@ -305,6 +381,12 @@ module.exports = defineConfig({
         captureAttemptError({ title, message, stack }) {
           if (!capturedAttemptErrors.has(title)) capturedAttemptErrors.set(title, []);
           capturedAttemptErrors.get(title).push({ message, stack });
+          return null;
+        },
+        // Store a test's step trail (last write wins → final attempt's trail).
+        // Injected into the mochawesome report in after:spec.
+        recordStepTrail({ title, steps }) {
+          stepTrails.set(title, steps);
           return null;
         },
         // Pre-flight redirect-loop probe — catches the WAF redirect-loop that
