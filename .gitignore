@@ -18,3 +18,6 @@ lighthouse-reports/
 
 # Local snapshots / undo buffer — not for version control
 _backup/
+
+# Generated crawl seed list (Screaming Frog List mode) — regenerate from domains.js
+storefront-urls.txt
