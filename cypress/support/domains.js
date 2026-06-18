@@ -13,12 +13,14 @@ const webApps = [
   'https://www.mycoway.',
   'https://www.purelynutrition.',
   'https://www.sweetbites.',
-  // futupets has no `www.` subdomain — getTargetUrl appends the locale directly
-  // (e.g. `https://futupets.si`). The checkout flow is the same as the other
-  // BeHealthy brands (`/blagajna` etc.) — only the product-entry step differs:
-  // futupets uses its homepage "Buy & Save" slider via productPage.buyAndSaveProduct
-  // instead of search-then-pick-first-card. Brand-aware branch in navigateToCheckout.
-  'https://futupets.'
+  // futupets' canonical host IS www — non-www 301-redirects to www (via an http
+  // hop), verified 2026-06-17, so we target www directly to skip that redirect
+  // chain. getTargetUrl appends the locale as the TLD (e.g. `https://www.futupets.si`).
+  // The checkout flow is the same as the other BeHealthy brands (`/blagajna` etc.) —
+  // only the product-entry step differs: futupets uses its homepage "Buy & Save"
+  // slider via productPage.buyAndSaveProduct instead of search-then-pick-first-card.
+  // Brand-aware branch in navigateToCheckout.
+  'https://www.futupets.'
 ];
 
 const brandOverrides = {
@@ -96,7 +98,7 @@ export function getTargetUrl(appBase, lang) {
 /**
  * Resolve the list of locales a given brand actually supports — drops any
  * locale listed in `excludedLocales` for that brand. Brand-key matching is
- * substring-based against the appBase (e.g. `'https://futupets.'` matches
+ * substring-based against the appBase (e.g. `'https://www.futupets.'` matches
  * the `futupets` key).
  *
  * @param {string} appBase - Entry from `webApps`
@@ -136,7 +138,7 @@ export function normalizeApp(str) {
 
 /**
  * Resolve a brand NAME (or fragment) to its `webApps` base URL — case- and
- * punctuation-insensitive (e.g. `'futupets'` → `'https://futupets.'`). Shared by
+ * punctuation-insensitive (e.g. `'futupets'` → `'https://www.futupets.'`). Shared by
  * the open-cypress.js and lighthouse-audit.js CLIs. Returns undefined if no
  * brand matches.
  * @param {string} name
