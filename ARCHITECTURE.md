@@ -217,11 +217,15 @@ missing):
    calls the real log). `beforeEach` resets it per attempt; `afterEach` bridges it
    via `cy.task('recordStepTrail', ...)` — fired before the failed-branch return,
    so it covers **pass, fail, and skip**.
-2. The `recordStepTrail` task stores trails in a Node-side Map (last write wins →
-   final attempt). `augmentReportWithStepTrails` injects the trail into the
-   mochawesome JSON `context` for **every** test, running after the retry
-   augmenter and **appending** (shared `appendContext` helper) so flaky-attempt
-   info and the step trail coexist. Both augmenters share `resolveSpecJson`.
+2. The `recordStepTrail` task stores trails in a Node-side Map keyed by title →
+   an array of `{attempt, state, steps}`, **one entry per attempt** (so a flaky or
+   fully-failed test shows where attempt 1 died vs. where attempt 2 went).
+   `augmentReportWithStepTrails` injects them into the mochawesome JSON `context`
+   for **every** test, running after the retry augmenter and **appending** (shared
+   `appendContext` helper) so flaky-attempt info and the trail(s) coexist. A
+   single-attempt test renders one `Step trail (N steps)`; multiple attempts render
+   `Step trail — attempt N (state, N steps)` per attempt. Both augmenters share
+   `resolveSpecJson`.
 
 No manual `cy.step()` instrumentation — it reuses the suite's existing narration
 logs, so nothing rots when methods are refactored. Renders in the report's
