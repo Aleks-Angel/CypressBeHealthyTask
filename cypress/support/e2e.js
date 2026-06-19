@@ -47,11 +47,18 @@ afterEach(function () {
   if (!test) return;
 
   // Bridge the step trail (pass, fail, or skip) to Node so the after:spec
-  // augmenter can inject it into the report. On retry the final attempt's
-  // beforeEach reset means this carries only the last attempt's steps; the
-  // Node-side Map overwrites by title so the final attempt wins.
+  // augmenter can inject it into the report. Sent once PER ATTEMPT, tagged with
+  // the attempt number + state — beforeEach resets the trail between attempts, so
+  // each send carries only that attempt's steps. The Node side keeps them all, so
+  // a flaky/failed test shows where attempt 1 died vs. where attempt 2 went,
+  // parallel to the per-attempt error capture below.
   if (stepTrail.length) {
-    cy.task('recordStepTrail', { title: test.title, steps: stepTrail.slice() }, { log: false });
+    cy.task('recordStepTrail', {
+      title: test.title,
+      attempt: getCurrentRetry(test) + 1,
+      state: test.state,
+      steps: stepTrail.slice(),
+    }, { log: false });
   }
 
   if (test.state === 'failed') {

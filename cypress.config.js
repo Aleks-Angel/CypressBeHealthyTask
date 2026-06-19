@@ -130,12 +130,22 @@ async function augmentReportWithStepTrails({ resultsDir, lang, stepTrails }) {
   let modified = false;
 
   for (const rootSuite of (report.results || [])) {
-    for (const [title, steps] of stepTrails) {
-      if (!steps || !steps.length) continue;
+    for (const [title, attempts] of stepTrails) {
+      if (!attempts || !attempts.length) continue;
       const t = findTestByTitle(rootSuite, title);
       if (!t) continue;
-      appendContext(t, { title: `Step trail (${steps.length} steps)`, value: formatStepTrail(steps) });
-      modified = true;
+      // Single attempt → "Step trail (N steps)". Multiple (flaky/failed) → label
+      // each with its attempt number + state so attempt 1's trail sits alongside
+      // attempt 2's (and the Attempt-N error/screenshot the retry augmenter added).
+      const multi = attempts.length > 1;
+      for (const a of attempts) {
+        if (!a.steps || !a.steps.length) continue;
+        const label = multi
+          ? `Step trail — attempt ${a.attempt} (${a.state}, ${a.steps.length} steps)`
+          : `Step trail (${a.steps.length} steps)`;
+        appendContext(t, { title: label, value: formatStepTrail(a.steps) });
+        modified = true;
+      }
     }
   }
 
@@ -278,8 +288,9 @@ module.exports = defineConfig({
       // Keyed by test title; one entry per failed attempt in order.
       const capturedAttemptErrors = new Map();
 
-      // Per-test step trails bridged from e2e.js's cy.log recorder (keyed by test
-      // title; final attempt overwrites). Injected into the report in after:spec.
+      // Per-test step trails bridged from e2e.js's cy.log recorder. Keyed by test
+      // title → array of {attempt, state, steps}, one entry per attempt (so flaky/
+      // failed tests show each attempt's trail). Injected into the report in after:spec.
       const stepTrails = new Map();
 
       on('after:screenshot', (details) => {
@@ -383,10 +394,11 @@ module.exports = defineConfig({
           capturedAttemptErrors.get(title).push({ message, stack });
           return null;
         },
-        // Store a test's step trail (last write wins → final attempt's trail).
-        // Injected into the mochawesome report in after:spec.
-        recordStepTrail({ title, steps }) {
-          stepTrails.set(title, steps);
+        // Store a test's step trail, one entry per attempt (so flaky/failed tests
+        // show each attempt's trail). Injected into the mochawesome report in after:spec.
+        recordStepTrail({ title, attempt, state, steps }) {
+          if (!stepTrails.has(title)) stepTrails.set(title, []);
+          stepTrails.get(title).push({ attempt, state, steps });
           return null;
         },
         // Pre-flight redirect-loop probe — catches the WAF redirect-loop that
