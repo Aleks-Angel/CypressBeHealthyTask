@@ -60,7 +60,15 @@ describe('Futunatura Purchase Journey with Data Fixtures', () => {
     // add-to-cart, which detaches the <svg> we matched on. Re-query for the click.
     homePage.cartBasketIcon.should('be.visible').and('not.have.class', 'disabled');
     homePage.cartBasketIcon.click();
-    homePage.cartDeleteItemButton.click();
+    // The weekly promo auto-adds a free-gift line (e.g. "Rashladna torba", 0.00 €)
+    // tied to the qualifying product, so the cart holds 2+ items. Removing the
+    // product cascades to remove its gift too, so ONE delete clears the cart —
+    // hence .first() (a multi-click would try to click the now-detached gift row).
+    // Assert the cart actually emptied: this is the check the old single .click()
+    // lacked, which let the silent "2 delete buttons" break slip through (spec is
+    // not in CI).
+    homePage.cartDeleteItemButton.first().click();
+    homePage.cartDeleteItemButton.should('not.exist');
     homePage.cartCloseButton.click();
   });
 });
