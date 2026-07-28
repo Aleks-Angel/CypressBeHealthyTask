@@ -60,21 +60,51 @@ function githubRunUrl() {
 }
 
 /**
+ * Classify WHY a run skipped, so the Slack message can be specific instead of
+ * lumping the two unrelated causes together. The reason is already in the skipped
+ * test's step trail (the `cy.log` markers differ): out-of-stock vs unreachable
+ * (WAF/bot-protection). Walks the merged report for the pending test and inspects
+ * its `context` (where the after:spec augmenter injects the trail).
+ *
+ * @param {object} report - parsed merged mochawesome report
+ * @returns {'out-of-stock'|'unreachable'|null} null = couldn't tell (generic msg)
+ */
+function classifySkipReason(report) {
+  const tests = [];
+  const walk = (node) => {
+    (node.tests || []).forEach(t => tests.push(t));
+    (node.suites || []).forEach(walk);
+  };
+  (report.results || []).forEach(walk);
+  const skipped = tests.find(t => t.pending || t.state === 'pending' || t.skipped === true);
+  const ctx = skipped && skipped.context ? String(skipped.context) : '';
+  if (/out of stock/i.test(ctx)) return 'out-of-stock';
+  if (/unreachable|cloudflare|bot-protection/i.test(ctx)) return 'unreachable';
+  return null;
+}
+
+/**
  * Read the merged mochawesome report and reduce it to the numbers we surface.
  * Returns null if the report is missing/unreadable (e.g. the run crashed before
  * the report was generated) so the caller can post a degraded "no report" message.
+ * On a skipped run also resolves `skipReason` (out-of-stock vs unreachable).
  */
 function readStats() {
   try {
     const raw = fs.readFileSync(REPORT_PATH, 'utf8');
-    const { stats } = JSON.parse(raw);
+    const report = JSON.parse(raw);
+    const { stats } = report;
     if (!stats) return null;
-    return {
+    const out = {
       passes: stats.passes ?? 0,
       failures: stats.failures ?? 0,
       pending: stats.pending ?? 0,
       duration: formatDuration(stats.duration),
     };
+    if (out.pending > 0 && out.passes === 0 && out.failures === 0) {
+      out.skipReason = classifySkipReason(report);
+    }
+    return out;
   } catch {
     return null;
   }
@@ -119,16 +149,30 @@ function buildPayload({ brand, lang, url, exitCode, stats, perf }) {
   const headline = `BeHealthy random domain order run ${state}`
     + (perf ? `   ·   🔦 Perf ${perf.score} ${perfEmoji(perf.score)}` : '');
 
+  // Two unrelated skip causes get their own wording (never lumped together):
+  // out-of-stock (the picked product can't be bought) vs unreachable (WAF/
+  // bot-protection blocked the CI IP). skipReason comes from the report's trail.
+  const skipReason = stats && stats.skipReason;
+  const skipResult = {
+    'out-of-stock': '⏭️ Skipped — product out of stock (no order to place; checkout not tested this run)',
+    unreachable: '⏭️ Skipped — store unreachable from CI / bot-protection (checkout not tested this run)',
+  }[skipReason] || '⏭️ Skipped — checkout not tested this run (inconclusive)';
+
   const resultLine = !stats
     ? `⚠️ No report found (run exited ${exitCode}) — likely crashed before reporting`
     : skipped
-      ? '⏭️ Skipped — store unreachable from CI (checkout not tested this run)'
+      ? skipResult
       : `✅ ${stats.passes} passed   ❌ ${stats.failures} failed   ⏭ ${stats.pending} pending   ⏱ ${stats.duration}`;
 
   // One-line, plain-language verdict for non-technical viewers (managers/leads).
+  const skipSentence = {
+    'out-of-stock': 'The product picked for this run was out of stock, so there was no order to place. Checkout was not tested this run — nothing wrong with the store.',
+    unreachable: "The store couldn't be reached from CI (bot-protection on the test server's IP). Checkout was not tested this run — not a known problem.",
+  }[skipReason] || 'Checkout was not tested this run (inconclusive) — not a known problem.';
+
   const summarySentence = {
     failed: 'A test order did not complete — checkout may be broken on this store. Please review.',
-    skipped: "The store couldn't be reached from CI (bot-protection on the test server's IP). Checkout was not tested this run — not a known problem.",
+    skipped: skipSentence,
     passed: 'A test order completed successfully — checkout is working on this store.',
   }[state];
 

@@ -43,18 +43,26 @@ describe(`[${lang}] ${capitalizedDomain} Order Test`, () => {
           // "skipped" in the report + a neutral Slack ⏭️ — instead of a false
           // ✅ (we never tested checkout) or ❌ (the store isn't actually broken).
           cy.log('⏭️ Site unreachable (WAF/bot-protection on CI IP) — skipping, not a checkout failure');
-          this.skip();
+          // Defer skip so the log above lands in the step trail / Slack skip-reason
+          // classifier (this.skip() throws synchronously, aborting before the queued
+          // cy.log runs). return keeps the order flow below from queuing.
+          cy.then(() => this.skip());
+          return;
         }
 
         cy.get('body').then(($body) => {
           if (isCloudflareChallenged($body)) {
             cy.log('⏭️ Cloudflare challenge/block detected — skipping domain (inconclusive)');
-            this.skip();
+            cy.then(() => this.skip());
+            return;
           }
 
           if (KNOWN_BRANDS.some(key => url.includes(key))) {
             cy.log(`Running order flow for: ${url}`);
-            runDomainsOrders(this.checkoutData);
+            // Pass a skip callback: if the picked product is out of stock (no
+            // add-to-cart, only the "notify when available" form), the order flow
+            // can't run — skip the test (inconclusive) instead of failing.
+            runDomainsOrders(this.checkoutData, () => this.skip());
           } else {
             cy.get('h1', { timeout: 10000 }).should('exist');
             cy.log('✅ Basic page load verified');
