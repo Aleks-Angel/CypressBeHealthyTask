@@ -2,6 +2,7 @@ import { productPage } from '../page_objects/ProductPage';
 import { checkoutPage } from '../page_objects/CheckoutPage';
 import { SUCCESS_TEXT_PATTERN } from '../utils/success-patterns';
 import { ORDER_NUMBER_SELECTOR } from '../utils/order-selectors';
+import { isOutOfStock } from '../utils/stock-patterns';
 
 const SUCCESS_URL_PATTERN = /\/(success|thank-you|zakljucek|hvala|completed|finished|order[-_]received)/i;
 const CHECKOUT_URL_PATTERNS = ['/blagajna', '/checkout', '/kasse', '/platba', '/fizetés', '/paiement', '/pagamento', '/pago', '/ολοκλήρωση'];
@@ -53,7 +54,7 @@ function isStillOnCheckoutPage(url) {
  * Modal handling — including the "re-click add-to-cart if modal didn't open"
  * resilience — lives in ProductPage.handleCartModal so all brands share it.
  */
-function navigateToCheckout() {
+function navigateToCheckout(onOutOfStock) {
   cy.bypassCookieBanner();
   cy.url().then((url) => {
     if (url.includes('futupets')) {
@@ -62,11 +63,31 @@ function navigateToCheckout() {
       cy.selectProductByIndex(0);
     }
   });
-  productPage.addToCartButton.click({ force: true });
-  productPage.handleCartModal('cart');
-  productPage.pageBody.should('not.have.class', 'modal-open');
-  cy.url().should('include', '/cart', { timeout: 15000 });
-  productPage.checkOutProduct();
+
+  // Out-of-stock gate. A sold-out product shows the "notify when available" form
+  // instead of an add-to-cart button (union markers in utils/stock-patterns), so
+  // there's nothing to buy. Detect it on the product page and SKIP the run
+  // (inconclusive) rather than timing out on the missing add-to-cart — an
+  // out-of-stock product isn't a checkout bug, same philosophy as the WAF skip.
+  // onOutOfStock() is the spec's this.skip(), which throws synchronously and ends
+  // the test, so the add-to-cart + the rest of the order chain never run. The
+  // cy.log lands in the report's step trail, so the skip reason is visible there.
+  cy.get('body').then(($body) => {
+    if (isOutOfStock($body)) {
+      cy.log('⏭️ Product out of stock — checkout not tested this run (skipping, not a failure)');
+      // Defer the skip: this.skip() throws synchronously, so calling it inline would
+      // abort BEFORE the queued cy.log above runs — leaving the report's step trail
+      // (and the Slack skip-reason classifier) without the reason. cy.then queues the
+      // skip AFTER the log, so the log is captured, then the skip ends the test.
+      if (onOutOfStock) cy.then(() => onOutOfStock());
+      return;
+    }
+    productPage.addToCartButton.click({ force: true });
+    productPage.handleCartModal('cart');
+    productPage.pageBody.should('not.have.class', 'modal-open');
+    cy.url().should('include', '/cart', { timeout: 15000 });
+    productPage.checkOutProduct();
+  });
 }
 
 /**
@@ -82,10 +103,12 @@ function navigateToCheckout() {
  * @param {Object} data - checkoutData fixture object
  * @param {Object} data.validUser - User data with localized address fields
  * @param {Object} data.paymentMethods - { defaultMethod, bankTransferLangs }
+ * @param {Function} [onOutOfStock] - Called if the picked product is out of stock
+ *   (the spec passes `() => this.skip()`); skips the run instead of failing.
  * @returns {Cypress.Chainable}
  */
-export function runDomainsOrders(data) {
-  navigateToCheckout();
+export function runDomainsOrders(data, onOutOfStock) {
+  navigateToCheckout(onOutOfStock);
 
   return checkoutPage.fillCustomerInfo(data.validUser).then(() => {
     checkoutPage.notesArea();
