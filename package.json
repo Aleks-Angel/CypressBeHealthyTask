@@ -40,7 +40,7 @@
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "chrome-launcher": "^1.1.2",
-    "cypress": "^15.17.0",
+    "cypress": "^15.19.0",
     "cypress-repeat": "^2.3.10",
     "eslint": "^10.6.0",
     "eslint-plugin-cypress": "^6.0.0",
