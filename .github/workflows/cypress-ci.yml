@@ -24,6 +24,20 @@ jobs:
           node-version: '24'
           cache: 'npm'
 
+      # setup-node's `cache: npm` only caches the npm package tarballs — NOT the
+      # ~200MB Cypress binary, which its postinstall downloads separately. Without
+      # this the hourly cron re-downloads it ~24x/day and a CDN hiccup fails the
+      # whole job before any test runs (seen 2026-08-05: "Downloading Cypress" →
+      # exit 1). Keyed on package-lock.json so a cypress version bump re-downloads.
+      # Must sit BEFORE `npm ci` so the binary is restored before the postinstall.
+      - name: Cache Cypress binary
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/Cypress
+          key: cypress-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            cypress-${{ runner.os }}-
+
       - run: npm ci
 
       - name: Run domain_visit.cy.js against a random brand × language
