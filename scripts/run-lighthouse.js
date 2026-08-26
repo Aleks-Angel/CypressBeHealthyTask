@@ -8,6 +8,7 @@
 // the green-order gate in run-random.js guarantees the site was reachable.
 
 const fs = require('fs');
+const { USER_AGENT } = require('./user-agent');
 
 // Desktop preset — minimal throttling so scores reflect the real server/page, not
 // an emulated slow mobile CPU. maxWaitForLoad bumped because slow storefronts
@@ -35,7 +36,7 @@ function resolveFinalUrl(startUrl, maxHops = 10) {
       let lib;
       try { lib = require(new URL(current).protocol === 'https:' ? 'node:https' : 'node:http'); }
       catch { done(current); return; }
-      const req = lib.get(current, { timeout: 15000, headers: { 'User-Agent': 'Mozilla/5.0' } }, (res) => {
+      const req = lib.get(current, { timeout: 15000, headers: { 'User-Agent': USER_AGENT } }, (res) => {
         res.resume();
         if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
           let next;
