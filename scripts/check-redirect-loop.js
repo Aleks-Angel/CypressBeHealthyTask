@@ -21,9 +21,10 @@
 // block the real browser passes), so good stores aren't falsely skipped. Never
 // throws — always resolves a verdict + the redirect chain (for tuning).
 
-const BROWSER_UA =
-  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
-  '(KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36';
+// Must be the SAME UA the browser sends (see scripts/user-agent.js): this probe
+// decides the WAF graceful-skip, so if it were left on a plain browser UA it would
+// still be challenged and skip the run before Cypress ever loaded the page.
+const { USER_AGENT } = require('./user-agent');
 
 // Cloudflare-infrastructure-specific markers — present on its challenge/block
 // pages, not on a real storefront page. The challenge-platform script path is the
@@ -65,7 +66,7 @@ function checkRedirectLoop({ url, maxHops = 12 }) {
       let lib;
       try { lib = require(new URL(current).protocol === 'https:' ? 'node:https' : 'node:http'); }
       catch { done({ reason: 'bad-url' }); return; }
-      const req = lib.get(current, { timeout: 10000, headers: { 'User-Agent': BROWSER_UA } }, (res) => {
+      const req = lib.get(current, { timeout: 10000, headers: { 'User-Agent': USER_AGENT } }, (res) => {
         const status = res.statusCode;
         const location = res.headers.location || null;
         chain.push({ status, location });
