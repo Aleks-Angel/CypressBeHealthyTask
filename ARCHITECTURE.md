@@ -79,6 +79,15 @@ Top-level files:
   Cloudflare challenge/block page (reads the response body) *before* `cy.visit`,
   so `safeVisit` can mark the site unreachable and the spec skips gracefully
   instead of dying at onWindowLoad. Never throws.
+- [scripts/user-agent.js](scripts/user-agent.js) — single source of truth for the
+  User-Agent, carrying a `BeHealthy-QA-Cypress/1.0` token that a Cloudflare WAF
+  rule allowlists so our traffic isn't challenged from CI's datacenter IP. Used by
+  `cypress.config.js` (browser launch flag), `check-redirect-loop.js` and
+  `run-lighthouse.js` — all three must send the same UA, since the probe runs
+  *before* `cy.visit` and would otherwise be challenged on its own. **The token is
+  appended to a real browser UA on purpose** (see the file's comment): sent bare it
+  looks like a bot wherever the CF rule doesn't match, which is how a CI run got
+  challenged on mycoway.sk.
 
 ---
 
