@@ -213,11 +213,19 @@ async function augmentReportWithRetryInfo({ resultsDir, lang, siteAlias, results
 }
 
 module.exports = defineConfig({
-  // Cypress 15 deprecated browser-side Cypress.env() in favor of Cypress.expose() (public
-  // values) and cy.env() (secrets). All our exposed values are public (language, brand
-  // URL), so we mirror them into config.expose in setupNodeEvents below and turn off the
-  // legacy API to silence the deprecation warning and surface any stray Cypress.env() calls.
-  allowCypressEnv: false,
+  // NOTE: `allowCypressEnv: false` lived here until Cypress 16 removed the option
+  // outright (Cypress.env() is gone; there's nothing left to switch off). We were
+  // already migrated to Cypress.expose() for the public values (language, brand URL)
+  // mirrored into config.expose in setupNodeEvents below, so the removal was a no-op
+  // for us beyond deleting the key — an unknown config key fails validation.
+  //
+  // Cypress 16 changed the default keystrokeDelay from 10ms to 0ms. Of our 14 .type()
+  // calls only 2 pass an explicit delay, so 12 would suddenly type instantly — including
+  // _forceType (the shared clear+type helper) and the RO/BG regional address fields,
+  // exactly the inputs this suite fights Vue re-render races on. Pinning 10 keeps the
+  // upgrade behaviour-neutral so a regression can be blamed on Cypress 16 itself rather
+  // than a typing-speed change. Dropping to 0 is a separate, deliberate experiment.
+  keystrokeDelay: 10,
   reporter: 'mochawesome',
   reporterOptions: {
     reportDir: 'cypress/results',
