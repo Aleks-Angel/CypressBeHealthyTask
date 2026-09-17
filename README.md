@@ -180,9 +180,9 @@ jobs:
   domain-visit-random:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: '24'
           cache: 'npm'
@@ -223,7 +223,7 @@ jobs:
 ```
 
 Notes:
-- Action majors (`@v6`, `@v6`, `@v7`) are the Node-24-native releases — they silence the Node 20 deprecation warning that GitHub started emitting after Sep 2025. No `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24` workaround needed.
+- Action versions are kept on their current majors (`checkout@v7`, `setup-node@v7`, `cache@v6`, `upload-artifact@v7`). They're all Node-24-native or later, so the Node 20 deprecation warning GitHub started emitting after Sep 2025 doesn't apply and no `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24` workaround is needed. The `checkout`/`setup-node` v7 majors were safe for us specifically: v7's only behavioural change in `checkout` is blocking fork-PR checkout for `pull_request_target`/`workflow_run` (we use neither trigger), and `setup-node` v7 only dropped a dummy `NODE_AUTH_TOKEN` export (we don't publish to npm). We pass just `node-version` + `cache` to it, and neither input changed.
 - `npm run cypress:run:random` runs `node run-random.js`, which picks one brand from `webApps` and one language from `languages` (single source of truth — `cypress/support/domains.js`). The pick is logged to stdout so the CI log shows what was tested.
 - `if: always()` on the artifact upload preserves screenshots + video + the mochawesome HTML even on failure — critical for the embedded-screenshot report to land in CI artifacts.
 - To make PR checks blocking: repo Settings → Branches → main → "Require status checks to pass" → tick `Domain Visit (Random)`. Off by default because random-pick flakes are noisy in PR review.
