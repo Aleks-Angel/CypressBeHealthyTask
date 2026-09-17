@@ -40,6 +40,17 @@ jobs:
 
       - run: npm ci
 
+      # npm 12 BLOCKS package install scripts by default, so `npm ci` can leave the
+      # Cypress binary uninstalled — and it fails silently: the package installs, then
+      # `cypress --version` reports "Cypress binary version: not installed" and the run
+      # dies. Hit locally on 2026-09-17 during the Cypress 16 upgrade under npm 12.
+      # CI's npm is still 11.x (warns instead of blocking), so the postinstall runs
+      # today; this step makes the job immune whenever setup-node's Node 24 line starts
+      # shipping npm 12. Idempotent — a no-op when the binary is already present,
+      # including when restored from the cache step above.
+      - name: Ensure Cypress binary is installed
+        run: npx cypress install
+
       - name: Run domain_visit.cy.js against a random brand × language
         run: npm run cypress:run:random
         env:
