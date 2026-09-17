@@ -115,6 +115,18 @@ and stabilized through real failure investigations. Each timeout, retry count,
 and `force: true` was chosen for a reason. Casual cleanup will reintroduce
 flakes you can't reproduce locally.
 
+### `keystrokeDelay: 10` in `cypress.config.js`
+**A deliberate pin, not a leftover.** Cypress 16 changed the default keystroke
+delay from 10ms to **0ms**. Only 2 of the suite's 14 `.type()` calls pass an
+explicit `delay`, so 12 of them would suddenly type instantly — including
+`_forceType` (the shared clear+type helper behind the basic-info / postal / IT / SK
+fills) and the RO/BG regional address fields, i.e. precisely the inputs this suite
+fights Vue re-render races on. Pinning 10 kept the Cypress 15→16 upgrade
+behaviour-neutral, so any regression was attributable to the major itself rather
+than a typing-speed change. Dropping it to 0 may well be fine (possibly even better
+for the races) but it's a **standalone experiment**: remove the line, then run the
+RO/BG locales plus futupets — don't bundle it with an unrelated change.
+
 ### `CheckoutPage._selectFromVueSelect`
 Vue-select races: the dropdown listbox is only mounted when the combobox is
 open. Typing with `{force:true}` bypasses focus and leaves the listbox unmounted.

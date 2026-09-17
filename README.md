@@ -33,8 +33,16 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for the full breakdown of how the code is
 
 ### Prerequisites
 
-- Node.js 22+ (CI runs on Node 24; lower versions may work but aren't validated)
-- npm
+- **Node.js 22.x, 24.x or 26+** — Cypress 16's supported range (`^22 || ^24 || >=26`).
+  Note 23.x and 25.x are *not* supported. CI runs Node 24; development is on 24.21.
+- **npm** — any recent version works. If you want npm 12 specifically it requires
+  Node `^22.22.2 || ^24.15.0 || >=26`, so upgrade Node first (npm 12 on Node 24.14
+  fails with `EBADENGINE`).
+  ⚠️ **npm 12 blocks package install scripts by default**, which means `npm ci` /
+  `npm install` can leave the Cypress *binary* uninstalled — quietly. If
+  `npx cypress --version` reports `Cypress binary version: not installed`, run
+  `npx cypress install`. ("had install scripts **blocked**" = npm 12 and a real
+  problem; "not yet covered by allowScripts" = npm 11 and harmless.)
 
 ### Installation
 
@@ -58,9 +66,17 @@ npm run cypress:run
 ```
 
 Defaults come from `cypress.config.js`:
-- `language=sl` (Slovenian)
+- `language=sl` — ⚠️ **this default is broken.** `sl` is *not* in the supported
+  locale list (it's `si` for Slovenian), so the spec titles itself `[SL]` and the
+  localized city/postcode lookups resolve against a locale that doesn't exist.
+  **Always pass `language=` explicitly** rather than relying on the default.
 - `selectedApp=https://www.futunatura.`
 - `selectedBaseUrl` is computed from those two via `getTargetUrl()`
+
+The same caveat applies to the `cypress:open:<brand>:<locale>` scripts above: they
+set only `selectedBaseUrl`, not `language`, so they inherit the broken `sl` default.
+Prefer `npx cypress open --env "selectedApp=...,language=..."` for anything where
+the locale actually matters.
 
 ### Pre-configured brand × locale (UI)
 
@@ -107,7 +123,7 @@ npm run cypress:run:sweetbites:all
 In `all` mode `open-cypress.js`:
 1. Wipes `cypress/results/`
 2. Runs `domain_visit.cy.js` per language sequentially
-3. Writes one mochawesome JSON per locale (`sl.json`, `hr.json`, ...)
+3. Writes one mochawesome JSON per locale (`si.json`, `hr.json`, ...)
 4. Merges them into `cypress/results/final-report.html` via `mochawesome-merge` + `marge`
 
 ### Direct CLI — target one spec / one URL
@@ -171,10 +187,28 @@ jobs:
           node-version: '24'
           cache: 'npm'
 
+      # setup-node's `cache: npm` caches package tarballs, NOT the ~200MB Cypress
+      # binary. Must come BEFORE `npm ci` so the binary is restored before the
+      # postinstall would otherwise re-download it.
+      - name: Cache Cypress binary
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/Cypress
+          key: cypress-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            cypress-${{ runner.os }}-
+
       - run: npm ci
+
+      # Guard against npm 12 blocking the Cypress postinstall (which would leave the
+      # binary uninstalled, silently). No-op when it's already present.
+      - name: Ensure Cypress binary is installed
+        run: npx cypress install
 
       - name: Run domain_visit.cy.js against a random brand × language
         run: npm run cypress:run:random
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
 
       - name: Upload Cypress results
         if: always()
@@ -185,6 +219,7 @@ jobs:
             cypress/results/screenshots
             cypress/results/videos
             cypress/results/final-report.html
+            lighthouse-reports
 ```
 
 Notes:
@@ -375,7 +410,7 @@ A 2026-06 reduction pass replaced several blind waits with deterministic signals
 - **Per-brand locale exclusions** are defined in `domains.js` `excludedLocales` and applied automatically by `run-random.js` (re-pick) and `open-cypress.js` (filter). Currently: `futupets` has no FR/ES/PT/UK deployments, so those 4 locales are skipped on futupets sweeps.
 - **Supported language codes** (all 16): `si hr it hu de at ro cz sk pl fr bg es gr pt uk`.
 - **`pageLoadTimeout: 120000`** is set in `cypress.config.js` — storefront success pages trail slow third-party trackers (Meta pixel, Google Tag) that keep `window.load` pending past the default 60 s. `domains_orders.js` calls `cy.window().then(win => win.stop())` once success is confirmed so the order-ID capture and cancellation steps don't sit blocked.
-- **`Cypress.expose()`** is used (not the deprecated `Cypress.env()`) — see `cypress.config.js` where `language`, `selectedApp`, and `selectedBaseUrl` are mirrored into `config.expose`. Browser code reads them with `Cypress.expose('language')`.
+- **`Cypress.expose()`** is used — `Cypress.env()` was deprecated in Cypress 15 and **removed in 16** — see `cypress.config.js` where `language`, `selectedApp`, and `selectedBaseUrl` are mirrored into `config.expose`. Browser code reads them with `Cypress.expose('language')`.
 
 ---
 
